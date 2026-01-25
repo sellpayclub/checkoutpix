@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign } from 'lucide-react';
+import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles } from 'lucide-react';
 import { Button } from '../components/ui';
 import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderStatus, getOrderBumps } from '../lib/supabase';
 import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, cleanPhone } from '../lib/openpix';
 import { sendPixGeneratedEmail, sendPurchaseApprovedEmail } from '../lib/resend';
-import { formatTimer, isValidEmail, isValidPhone, copyToClipboard } from '../lib/utils';
+import { formatTimer, isValidEmail, isValidPhone, isValidCPF, formatCPF, formatPhoneMask, copyToClipboard } from '../lib/utils';
 import type { CheckoutFormData, ProductPlan } from '../types';
 
 // Logo SellPay default
@@ -20,6 +20,7 @@ interface OrderBumpData {
     image_url: string | null;
     box_color: string;
     text_color: string;
+    button_text?: string;
 }
 
 export function Checkout() {
@@ -33,7 +34,12 @@ export function Checkout() {
         name: string;
         image_url: string | null;
         cover_image_url: string | null;
-        plan: { name: string; price: number };
+        plan: {
+            name: string;
+            price: number;
+            is_recurring?: boolean;
+            recurring_interval?: 'monthly' | 'yearly' | null;
+        };
         deliverables: { type: string; file_url: string | null; redirect_url: string | null }[];
     } | null>(null);
     const [orderBumps, setOrderBumps] = useState<OrderBumpData[]>([]);
@@ -44,11 +50,14 @@ export function Checkout() {
         primary_color: '#059669',
         button_text: 'FINALIZAR COMPRA',
         footer_text: '© 2026 SellPay. Todos os direitos reservados.',
+        cpf_enabled: false,
+        order_bump_title: 'Aproveite essa oferta especial!',
+        order_bump_button_text: 'Adicionar oferta',
     });
     const [pixels, setPixels] = useState<string[]>([]);
 
     // Form state
-    const [form, setForm] = useState<CheckoutFormData>({ name: '', email: '', phone: '' });
+    const [form, setForm] = useState<CheckoutFormData>({ name: '', email: '', phone: '', cpf: '' });
     const [errors, setErrors] = useState<Partial<CheckoutFormData>>({});
     const [selectedBump, setSelectedBump] = useState<OrderBumpData | null>(null);
 
@@ -152,16 +161,29 @@ export function Checkout() {
                 name: productData.name,
                 image_url: productData.image_url,
                 cover_image_url: productData.cover_image_url,
-                plan: { name: plan.name, price: plan.price },
+                plan: {
+                    name: plan.name,
+                    price: plan.price,
+                    is_recurring: plan.is_recurring,
+                    recurring_interval: plan.recurring_interval
+                },
                 deliverables: productData.product_deliverables || [],
             });
 
-            // Load active order bumps
-            const activeBumps = bumpsData?.filter((b: OrderBumpData & { is_active: boolean }) => b.is_active) || [];
+            // Load active order bumps linked to this product
+            const productBumpIds = productData.order_bump_ids || [];
+            const activeBumps = bumpsData?.filter((b: OrderBumpData & { is_active: boolean }) =>
+                b.is_active && productBumpIds.includes(b.id)
+            ) || [];
             setOrderBumps(activeBumps);
 
             if (settingsData) {
-                setSettings(settingsData);
+                setSettings({
+                    ...settingsData,
+                    cpf_enabled: settingsData.cpf_enabled ?? false,
+                    order_bump_title: settingsData.order_bump_title || 'Aproveite essa oferta especial!',
+                    order_bump_button_text: settingsData.order_bump_button_text || 'Adicionar oferta',
+                });
                 setTimeLeft(settingsData.timer_duration);
             }
 
@@ -208,6 +230,14 @@ export function Checkout() {
             newErrors.phone = 'Telefone é obrigatório';
         } else if (!isValidPhone(form.phone)) {
             newErrors.phone = 'Telefone inválido';
+        }
+
+        if (settings.cpf_enabled) {
+            if (!form.cpf.trim()) {
+                newErrors.cpf = 'CPF é obrigatório';
+            } else if (!isValidCPF(form.cpf)) {
+                newErrors.cpf = 'CPF inválido';
+            }
         }
 
         setErrors(newErrors);
@@ -344,13 +374,13 @@ export function Checkout() {
                 </div>
             )}
 
-            {/* Product Cover Image (Individual per product) - Full image, not cropped */}
+            {/* Product Cover Image (Individual per product) - Full image with rounded corners */}
             {product.cover_image_url && (
-                <div className="w-full bg-gray-100">
+                <div className="w-full bg-gray-100 px-4 pt-4">
                     <img
                         src={product.cover_image_url}
                         alt="Cover"
-                        className="w-full h-auto max-h-80 object-contain mx-auto"
+                        className="w-full h-auto max-h-80 object-cover mx-auto rounded-3xl shadow-xl"
                     />
                 </div>
             )}
@@ -358,22 +388,35 @@ export function Checkout() {
             <div className="max-w-lg mx-auto px-4 py-8">
                 {/* Product Card */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 mb-6 overflow-hidden">
-                    {/* Product Image as Banner (if no cover) */}
-                    {!product.cover_image_url && product.image_url && (
-                        <div className="w-full h-40 overflow-hidden">
+                    {/* Always show product image */}
+                    {product.image_url && (
+                        <div className="flex items-center gap-4 p-5 border-b border-gray-100">
                             <img
                                 src={product.image_url}
                                 alt={product.name}
-                                className="w-full h-full object-cover"
+                                className="w-16 h-16 rounded-xl object-cover"
                             />
+                            <div className="flex-1">
+                                <h2 className="font-bold text-xl text-gray-900">{product.name}</h2>
+                                <p className="text-sm text-gray-500">Plano: {product.plan.name}</p>
+                            </div>
                         </div>
                     )}
                     <div className="p-5">
-                        <h2 className="font-bold text-xl text-gray-900 mb-1">{product.name}</h2>
+                        {!product.image_url && (
+                            <>
+                                <h2 className="font-bold text-xl text-gray-900 mb-1">{product.name}</h2>
+                                <p className="text-sm text-gray-500 mb-2">Plano: {product.plan.name}</p>
+                            </>
+                        )}
                         <p className="text-3xl font-extrabold" style={{ color: settings.primary_color }}>
                             {formatPrice(product.plan.price)}
+                            {product.plan.is_recurring && (
+                                <span className="text-sm font-medium text-gray-400 ml-1">
+                                    /{product.plan.recurring_interval === 'monthly' ? 'mês' : 'ano'}
+                                </span>
+                            )}
                         </p>
-                        <p className="text-sm text-gray-500 mt-1">Plano: {product.plan.name}</p>
                     </div>
                 </div>
 
@@ -393,13 +436,14 @@ export function Checkout() {
                                 <div className="space-y-3">
                                     {/* Name Input */}
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Seu nome completo</label>
                                         <div className="relative">
                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                                                 <User size={18} />
                                             </div>
                                             <input
                                                 type="text"
-                                                placeholder="Nome completo"
+                                                placeholder="Ex: João da Silva"
                                                 value={form.name}
                                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                                 className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 transition-all focus:outline-none focus:bg-white focus:border-emerald-500 ${errors.name ? 'border-red-400' : 'border-transparent'}`}
@@ -410,13 +454,14 @@ export function Checkout() {
 
                                     {/* Email Input */}
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Seu melhor e-mail</label>
                                         <div className="relative">
                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                                                 <Mail size={18} />
                                             </div>
                                             <input
                                                 type="email"
-                                                placeholder="Seu melhor e-mail"
+                                                placeholder="Ex: joao@email.com"
                                                 value={form.email}
                                                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                                                 className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 transition-all focus:outline-none focus:bg-white focus:border-emerald-500 ${errors.email ? 'border-red-400' : 'border-transparent'}`}
@@ -427,6 +472,7 @@ export function Checkout() {
 
                                     {/* Phone Input */}
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Telefone / WhatsApp</label>
                                         <div className="relative">
                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                                                 <Phone size={18} />
@@ -435,60 +481,104 @@ export function Checkout() {
                                                 type="tel"
                                                 placeholder="(00) 00000-0000"
                                                 value={form.phone}
-                                                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                                                onChange={(e) => setForm({ ...form, phone: formatPhoneMask(e.target.value) })}
                                                 className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 transition-all focus:outline-none focus:bg-white focus:border-emerald-500 ${errors.phone ? 'border-red-400' : 'border-transparent'}`}
                                             />
                                         </div>
                                         {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
                                     </div>
+
+
+
+                                    {/* CPF Input */}
+                                    {settings.cpf_enabled && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
+                                            <div className="relative">
+                                                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                                    <CreditCard size={18} />
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="000.000.000-00"
+                                                    value={form.cpf}
+                                                    onChange={(e) => setForm({ ...form, cpf: formatCPF(e.target.value) })}
+                                                    className={`w-full pl-12 pr-4 py-4 bg-gray-50 border-2 rounded-xl text-gray-900 placeholder-gray-400 transition-all focus:outline-none focus:bg-white focus:border-emerald-500 ${errors.cpf ? 'border-red-400' : 'border-transparent'}`}
+                                                />
+                                            </div>
+                                            {errors.cpf && <p className="text-sm text-red-500 mt-1">{errors.cpf}</p>}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {/* Order Bumps with Images */}
-                            {orderBumps.length > 0 && orderBumps.map((bump) => (
-                                <div
-                                    key={bump.id}
-                                    onClick={() => setSelectedBump(selectedBump?.id === bump.id ? null : bump)}
-                                    className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedBump?.id === bump.id
-                                        ? 'border-emerald-500 bg-emerald-50'
-                                        : 'border-dashed border-gray-200 hover:border-gray-300'
-                                        }`}
-                                    style={selectedBump?.id === bump.id ? {
-                                        borderColor: bump.box_color,
-                                        backgroundColor: `${bump.box_color}10`
-                                    } : undefined}
-                                >
-                                    <div className="flex items-start gap-3">
-                                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${selectedBump?.id === bump.id
-                                            ? 'bg-emerald-500 border-emerald-500'
-                                            : 'border-gray-300'
-                                            }`}>
-                                            {selectedBump?.id === bump.id && (
-                                                <Check size={12} className="text-white" />
-                                            )}
-                                        </div>
-
-                                        {/* Bump Image */}
-                                        {bump.image_url && (
-                                            <img
-                                                src={bump.image_url}
-                                                alt={bump.name}
-                                                className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
-                                            />
-                                        )}
-
-                                        <div className="flex-1">
-                                            <p className="font-bold text-gray-900 text-sm">{bump.title}</p>
-                                            {bump.description && (
-                                                <p className="text-gray-500 text-sm mt-1">{bump.description}</p>
-                                            )}
-                                            <p className="font-bold mt-2" style={{ color: bump.box_color }}>
-                                                + {formatPrice(bump.price)}
-                                            </p>
-                                        </div>
+                            {orderBumps.length > 0 && (
+                                <div className="space-y-3 mb-6">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles size={16} className="text-amber-500" />
+                                        <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">{settings.order_bump_title}</h3>
                                     </div>
+
+                                    {orderBumps.map((bump) => (
+                                        <div
+                                            key={bump.id}
+                                            onClick={() => setSelectedBump(selectedBump?.id === bump.id ? null : bump)}
+                                            className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedBump?.id === bump.id
+                                                ? 'border-emerald-500 bg-emerald-50'
+                                                : 'border-dashed border-gray-200 hover:border-gray-300'
+                                                }`}
+                                            style={selectedBump?.id === bump.id ? {
+                                                borderColor: bump.box_color,
+                                                backgroundColor: `${bump.box_color}10`
+                                            } : undefined}
+                                        >
+                                            <div className="flex items-start gap-3">
+                                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${selectedBump?.id === bump.id
+                                                    ? 'bg-emerald-500 border-emerald-500'
+                                                    : 'border-gray-300'
+                                                    }`}
+                                                    style={selectedBump?.id === bump.id ? { backgroundColor: bump.box_color, borderColor: bump.box_color } : undefined}
+                                                >
+                                                    {selectedBump?.id === bump.id && (
+                                                        <Check size={12} className="text-white" />
+                                                    )}
+                                                </div>
+
+                                                {/* Bump Image */}
+                                                {bump.image_url && (
+                                                    <img
+                                                        src={bump.image_url}
+                                                        alt={bump.name}
+                                                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+                                                    />
+                                                )}
+
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-start">
+                                                        <p className="font-bold text-gray-900 text-sm">{bump.title}</p>
+                                                        <p className="font-bold text-sm whitespace-nowrap ml-2" style={{ color: bump.box_color }}>
+                                                            + {formatPrice(bump.price)}
+                                                        </p>
+                                                    </div>
+
+                                                    {bump.description && (
+                                                        <p className="text-gray-500 text-xs mt-1 leading-relaxed">{bump.description}</p>
+                                                    )}
+
+                                                    <div className="mt-2 text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg inline-block transition-colors"
+                                                        style={{
+                                                            backgroundColor: selectedBump?.id === bump.id ? bump.box_color : '#f3f4f6',
+                                                            color: selectedBump?.id === bump.id ? 'white' : 'gray'
+                                                        }}>
+                                                        {selectedBump?.id === bump.id ? 'ADICIONADO' : (bump.button_text || settings.order_bump_button_text).toUpperCase()}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
 
                             {/* Payment Method */}
                             <div>
@@ -527,6 +617,11 @@ export function Checkout() {
                                     <span className="font-medium text-gray-600">Total a pagar:</span>
                                     <span className="text-2xl font-extrabold" style={{ color: settings.primary_color }}>
                                         {formatPrice(calculateTotal())}
+                                        {product.plan.is_recurring && !selectedBump && (
+                                            <span className="text-xs font-medium text-gray-400 ml-1">
+                                                /{product.plan.recurring_interval === 'monthly' ? 'mês' : 'ano'}
+                                            </span>
+                                        )}
                                     </span>
                                 </div>
                             </div>
@@ -650,6 +745,6 @@ export function Checkout() {
                     />
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

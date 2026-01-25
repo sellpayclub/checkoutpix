@@ -149,10 +149,62 @@ export function getStatusLabel(status: string): string {
  */
 export function getStatusColor(status: string): string {
     const colors: Record<string, string> = {
-        PENDING: 'bg-yellow-100 text-yellow-800',
-        APPROVED: 'bg-green-100 text-green-800',
-        EXPIRED: 'bg-gray-100 text-gray-800',
-        REFUNDED: 'bg-red-100 text-red-800',
+        PENDING: 'bg-amber-500/10 text-amber-500',
+        APPROVED: 'bg-emerald-500/10 text-emerald-500',
+        EXPIRED: 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]',
+        REFUNDED: 'bg-red-500/10 text-red-500',
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]';
+}
+
+/**
+ * Validate Brazilian CPF
+ */
+export function isValidCPF(cpf: string): boolean {
+    const cleaned = cpf.replace(/\D/g, '');
+    if (cleaned.length !== 11) return false;
+
+    // Check for known invalid patterns
+    if (/^(\d)\1{10}$/.test(cleaned)) return false;
+
+    // Validate first digit
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+        sum += parseInt(cleaned.charAt(i)) * (10 - i);
+    }
+    let remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(cleaned.charAt(9))) return false;
+
+    // Validate second digit
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+        sum += parseInt(cleaned.charAt(i)) * (11 - i);
+    }
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) remainder = 0;
+    if (remainder !== parseInt(cleaned.charAt(10))) return false;
+
+    return true;
+}
+
+/**
+ * Format CPF with mask (000.000.000-00)
+ */
+export function formatCPF(value: string): string {
+    const cleaned = value.replace(/\D/g, '').slice(0, 11);
+    return cleaned
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
+/**
+ * Format phone with mask ((00) 00000-0000)
+ */
+export function formatPhoneMask(value: string): string {
+    const cleaned = value.replace(/\D/g, '').slice(0, 11);
+    if (cleaned.length <= 2) return cleaned;
+    if (cleaned.length <= 7) return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2)}`;
+    return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
 }

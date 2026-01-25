@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Download, Eye, ShoppingCart, X, User, Mail, Phone } from 'lucide-react';
+import { Search, Filter, Download, Eye, ShoppingCart, X, User, Mail, Phone, Send, AlertTriangle } from 'lucide-react';
 import { Button, Card, Badge } from '../components/ui';
 import { getOrders, getProducts } from '../lib/supabase';
+import { sendPixExpiredEmail, sendAbandonedCartEmail } from '../lib/resend';
 import { formatPrice } from '../lib/openpix';
 import { formatDateTime, getStatusLabel } from '../lib/utils';
 import type { Order, Product } from '../types';
@@ -12,7 +13,52 @@ interface OrderModalProps {
 }
 
 function OrderModal({ order, onClose }: OrderModalProps) {
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+
     if (!order) return null;
+
+    async function handleSendRecovery() {
+        if (!order) return;
+        setIsSendingEmail(true);
+        try {
+            // Construct checkout URL (assuming pattern /checkout/:productId/:planId)
+            const checkoutUrl = `${window.location.origin}/checkout/${order.product_id}/${order.plan_id}`;
+
+            await sendAbandonedCartEmail({
+                customerEmail: order.customer_email,
+                customerName: order.customer_name,
+                productName: order.product?.name || 'Produto',
+                checkoutUrl
+            });
+            alert('Email de recuperação enviado com sucesso!');
+        } catch (error) {
+            console.error('Error sending email:', error);
+            alert('Erro ao enviar email');
+        } finally {
+            setIsSendingEmail(false);
+        }
+    }
+
+    async function handleSendExpired() {
+        if (!order) return;
+        setIsSendingEmail(true);
+        try {
+            const checkoutUrl = `${window.location.origin}/checkout/${order.product_id}/${order.plan_id}`;
+
+            await sendPixExpiredEmail({
+                customerEmail: order.customer_email,
+                customerName: order.customer_name,
+                productName: order.product?.name || 'Produto',
+                checkoutUrl
+            });
+            alert('Email de Pix expirado enviado com sucesso!');
+        } catch (error) {
+            console.error('Error sending email:', error);
+            alert('Erro ao enviar email');
+        } finally {
+            setIsSendingEmail(false);
+        }
+    }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -101,7 +147,40 @@ function OrderModal({ order, onClose }: OrderModalProps) {
                                 <span className="text-sm font-medium text-[var(--text-secondary)]">{formatDateTime(order.created_at)}</span>
                             </div>
                         </div>
+
+
                     </div>
+
+                    {/* Actions for Pending/Expired */}
+                    {(order.status === 'PENDING' || order.status === 'EXPIRED') && (
+                        <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
+                            <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <AlertTriangle size={14} />
+                                AÇÕES DE RECUPERAÇÃO
+                            </h3>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Button
+                                    onClick={handleSendRecovery}
+                                    isLoading={isSendingEmail}
+                                    size="sm"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    icon={<Send size={16} />}
+                                >
+                                    Enviar Recuperação
+                                </Button>
+                                <Button
+                                    onClick={handleSendExpired}
+                                    isLoading={isSendingEmail}
+                                    size="sm"
+                                    variant="secondary"
+                                    className="border-amber-200 text-amber-700 hover:bg-amber-100"
+                                    icon={<AlertTriangle size={16} />}
+                                >
+                                    Pix Expirado
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
@@ -203,8 +282,8 @@ export function Vendas() {
     if (isLoading) {
         return (
             <div className="p-8 gradient-mesh min-h-screen animate-pulse">
-                <div className="h-12 bg-white rounded-xl w-48 mb-8 shadow-sm" />
-                <div className="h-96 bg-white rounded-2xl shadow-sm" />
+                <div className="h-12 bg-[var(--bg-card)] rounded-xl w-48 mb-8 shadow-sm" />
+                <div className="h-96 bg-[var(--bg-card)] rounded-2xl shadow-sm" />
             </div>
         );
     }
@@ -301,8 +380,8 @@ export function Vendas() {
                         <div className="empty-state-icon">
                             <ShoppingCart size={32} />
                         </div>
-                        <h3 className="text-lg font-semibold text-gray-700 mb-2">Nenhuma venda encontrada</h3>
-                        <p className="text-gray-500">As vendas aparecerão aqui conforme forem realizadas</p>
+                        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Nenhuma venda encontrada</h3>
+                        <p className="text-[var(--text-secondary)]">As vendas aparecerão aqui conforme forem realizadas</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
@@ -322,22 +401,22 @@ export function Vendas() {
                                     <tr key={order.id} className="animate-fade-in">
                                         <td>
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                                                    <span className="font-semibold text-gray-600">
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--border-color)] flex items-center justify-center">
+                                                    <span className="font-semibold text-[var(--text-secondary)]">
                                                         {order.customer_name.charAt(0).toUpperCase()}
                                                     </span>
                                                 </div>
                                                 <div>
-                                                    <p className="font-semibold text-gray-900">{order.customer_name}</p>
-                                                    <p className="text-sm text-gray-500">{order.customer_email}</p>
+                                                    <p className="font-semibold text-[var(--text-primary)]">{order.customer_name}</p>
+                                                    <p className="text-sm text-[var(--text-secondary)]">{order.customer_email}</p>
                                                 </div>
                                             </div>
                                         </td>
                                         <td>
-                                            <p className="font-medium text-gray-900">{order.product?.name || '-'}</p>
+                                            <p className="font-medium text-[var(--text-primary)]">{order.product?.name || '-'}</p>
                                         </td>
                                         <td>
-                                            <p className="font-bold text-gray-900">{formatPrice(order.amount)}</p>
+                                            <p className="font-bold text-[var(--text-primary)]">{formatPrice(order.amount)}</p>
                                         </td>
                                         <td>
                                             <Badge
@@ -352,15 +431,15 @@ export function Vendas() {
                                             </Badge>
                                         </td>
                                         <td>
-                                            <p className="text-sm text-gray-500">{formatDateTime(order.created_at)}</p>
+                                            <p className="text-sm text-[var(--text-secondary)]">{formatDateTime(order.created_at)}</p>
                                         </td>
                                         <td>
                                             <button
                                                 onClick={() => setSelectedOrder(order)}
-                                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                                className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors"
                                                 title="Ver detalhes"
                                             >
-                                                <Eye size={18} className="text-gray-400 hover:text-gray-600" />
+                                                <Eye size={18} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]" />
                                             </button>
                                         </td>
                                     </tr>

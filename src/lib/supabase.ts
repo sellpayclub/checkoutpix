@@ -57,7 +57,14 @@ interface LocalDeliverable {
 }
 
 export async function getProducts(): Promise<LocalProduct[]> {
-    return getFromStorage<LocalProduct>(STORAGE_KEYS.products);
+    const products = getFromStorage<LocalProduct>(STORAGE_KEYS.products);
+    // Safety check for legacy data
+    return products.map(p => ({
+        ...p,
+        product_plans: p.product_plans || [],
+        product_deliverables: p.product_deliverables || [],
+        order_bump_ids: p.order_bump_ids || []
+    }));
 }
 
 export async function getProduct(id: string): Promise<LocalProduct | null> {
@@ -71,10 +78,14 @@ export async function createProduct(product: {
     image_url?: string;
     cover_image_url?: string;
     order_bump_ids?: string[];
+    product_plans?: Omit<LocalProductPlan, 'id' | 'product_id' | 'is_active'>[];
+    product_deliverables?: Omit<LocalDeliverable, 'id' | 'product_id'>[];
 }): Promise<LocalProduct> {
     const products = getFromStorage<LocalProduct>(STORAGE_KEYS.products);
+    const productId = generateId();
+
     const newProduct: LocalProduct = {
-        id: generateId(),
+        id: productId,
         name: product.name,
         description: product.description || null,
         image_url: product.image_url || null,
@@ -82,9 +93,19 @@ export async function createProduct(product: {
         order_bump_ids: product.order_bump_ids || [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        product_plans: [],
-        product_deliverables: [],
+        product_plans: (product.product_plans || []).map(p => ({
+            ...p,
+            id: generateId(),
+            product_id: productId,
+            is_active: true
+        })),
+        product_deliverables: (product.product_deliverables || []).map(d => ({
+            ...d,
+            id: generateId(),
+            product_id: productId
+        })),
     };
+
     products.unshift(newProduct);
     saveToStorage(STORAGE_KEYS.products, products);
     return newProduct;
@@ -202,6 +223,7 @@ export interface LocalOrderBump {
     image_url: string | null;
     box_color: string;
     text_color: string;
+    button_text?: string;
     is_active: boolean;
     created_at: string;
 }
@@ -223,6 +245,8 @@ export async function createOrderBump(bump: {
     image_url?: string;
     box_color?: string;
     text_color?: string;
+    button_text?: string;
+    is_active?: boolean;
 }): Promise<LocalOrderBump> {
     const bumps = getFromStorage<LocalOrderBump>(STORAGE_KEYS.orderBumps);
     const newBump: LocalOrderBump = {
@@ -234,7 +258,8 @@ export async function createOrderBump(bump: {
         image_url: bump.image_url || null,
         box_color: bump.box_color || '#22c55e',
         text_color: bump.text_color || '#ffffff',
-        is_active: true,
+        button_text: bump.button_text || undefined,
+        is_active: bump.is_active ?? true,
         created_at: new Date().toISOString(),
     };
     bumps.unshift(newBump);
@@ -257,12 +282,25 @@ export async function deleteOrderBump(id: string): Promise<void> {
     saveToStorage(STORAGE_KEYS.orderBumps, bumps.filter(b => b.id !== id));
 }
 
-export async function linkOrderBumpToProduct(_productId: string, _orderBumpId: string): Promise<void> {
-    // For local storage, we don't need to link - handled in product form
+export async function linkOrderBumpToProduct(productId: string, orderBumpId: string): Promise<void> {
+    const products = getFromStorage<LocalProduct>(STORAGE_KEYS.products);
+    const index = products.findIndex(p => p.id === productId);
+    if (index === -1) throw new Error('Product not found');
+
+    const currentBumps = products[index].order_bump_ids || [];
+    if (!currentBumps.includes(orderBumpId)) {
+        products[index].order_bump_ids = [...currentBumps, orderBumpId];
+        saveToStorage(STORAGE_KEYS.products, products);
+    }
 }
 
-export async function unlinkOrderBumpFromProduct(_productId: string, _orderBumpId: string): Promise<void> {
-    // For local storage, we don't need to unlink
+export async function unlinkOrderBumpFromProduct(productId: string, orderBumpId: string): Promise<void> {
+    const products = getFromStorage<LocalProduct>(STORAGE_KEYS.products);
+    const index = products.findIndex(p => p.id === productId);
+    if (index === -1) throw new Error('Product not found');
+
+    products[index].order_bump_ids = (products[index].order_bump_ids || []).filter(id => id !== orderBumpId);
+    saveToStorage(STORAGE_KEYS.products, products);
 }
 
 // ============ Orders ============
@@ -288,18 +326,32 @@ export interface LocalOrder {
     order_bump?: LocalOrderBump;
 }
 
-export async function getOrders(_filters?: {
+export async function getOrders(filters?: {
     status?: string;
     productId?: string;
     startDate?: string;
     endDate?: string;
 }): Promise<LocalOrder[]> {
-    const orders = getFromStorage<LocalOrder>(STORAGE_KEYS.orders);
+    let orders = getFromStorage<LocalOrder>(STORAGE_KEYS.orders);
     const products = getFromStorage<LocalProduct>(STORAGE_KEYS.products);
+
+    // Apply filters
+    if (filters?.status) {
+        orders = orders.filter(o => o.status === filters.status);
+    }
+    if (filters?.productId) {
+        orders = orders.filter(o => o.product_id === filters.productId);
+    }
+    if (filters?.startDate) {
+        orders = orders.filter(o => o.created_at >= filters.startDate!);
+    }
+    if (filters?.endDate) {
+        orders = orders.filter(o => o.created_at <= filters.endDate!);
+    }
 
     return orders.map(order => {
         const product = products.find(p => p.id === order.product_id);
-        const plan = product?.product_plans.find(pl => pl.id === order.plan_id);
+        const plan = product?.product_plans?.find(pl => pl.id === order.plan_id);
         return { ...order, product, plan };
     });
 }
@@ -419,6 +471,9 @@ export interface LocalSettings {
     logo_url: string | null;
     cover_image_url: string | null;
     footer_text: string;
+    cpf_enabled: boolean;
+    order_bump_title: string;
+    order_bump_button_text: string;
     updated_at: string;
 }
 
@@ -432,6 +487,9 @@ const DEFAULT_SETTINGS: LocalSettings = {
     logo_url: SELLPAY_LOGO,
     cover_image_url: null,
     footer_text: '© 2026 SellPay. Todos os direitos reservados.',
+    cpf_enabled: false,
+    order_bump_title: 'Aproveite essa oferta especial!',
+    order_bump_button_text: 'Adicionar oferta',
     updated_at: new Date().toISOString(),
 };
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Wallet, ArrowUpRight, ArrowDownLeft, RefreshCw, AlertCircle, CheckCircle, DollarSign } from 'lucide-react';
-import { Button, Card, Badge, Input } from '../components/ui';
+import { Button, Card, Input } from '../components/ui';
 import { getCompanyInfo, requestWithdraw, formatPrice, parsePriceToCents } from '../lib/openpix';
 import type { WooviCompany } from '../lib/openpix';
 
@@ -68,10 +68,10 @@ export function Financeiro() {
     if (isLoading) {
         return (
             <div className="p-8 gradient-mesh min-h-screen animate-pulse">
-                <div className="h-12 bg-white rounded-xl w-48 mb-8 shadow-sm" />
+                <div className="h-12 bg-[var(--bg-card)] rounded-xl w-48 mb-8 shadow-sm" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <div className="h-48 bg-white rounded-2xl shadow-sm" />
-                    <div className="h-48 bg-white rounded-2xl shadow-sm" />
+                    <div className="h-48 bg-[var(--bg-card)] rounded-2xl shadow-sm" />
+                    <div className="h-48 bg-[var(--bg-card)] rounded-2xl shadow-sm" />
                 </div>
             </div>
         );
@@ -102,8 +102,8 @@ export function Financeiro() {
             {!company ? (
                 <Card className="text-center py-12">
                     <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Não foi possível carregar os dados</h3>
-                    <p className="text-gray-500 mb-4">
+                    <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Não foi possível carregar os dados</h3>
+                    <p className="text-[var(--text-secondary)] mb-4">
                         Verifique se sua chave da API OpenPix/Woovi está configurada corretamente.
                     </p>
                     <Button variant="secondary" onClick={handleRefresh}>
@@ -129,7 +129,6 @@ export function Financeiro() {
                                         </p>
                                     </div>
                                 </div>
-                                <Badge variant="success" dot className="bg-emerald-500/10 border border-emerald-500/20">Sincronizado</Badge>
                             </div>
                         </div>
 
@@ -148,31 +147,10 @@ export function Financeiro() {
                                         </p>
                                     </div>
                                 </div>
-                                <p className="text-xs font-bold text-blue-500/80 tracking-wide">
-                                    Pronto para transferência bancária
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Account Info */}
-                        <div className="stat-card relative overflow-hidden p-6 border-b-4 border-purple-500 group">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full -mr-10 -mt-10 group-hover:scale-110 transition-transform" />
-                            <div className="relative">
-                                <div className="flex items-center gap-4 mb-4">
-                                    <div className="w-12 h-12 rounded-2xl gradient-purple flex items-center justify-center shadow-lg shadow-purple-500/20">
-                                        <DollarSign size={24} className="text-white" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-widest">Conta Principal</p>
-                                        <p className="text-xl font-black text-[var(--text-primary)] truncate italic">{company.name}</p>
-                                    </div>
-                                </div>
-                                <p className="text-xs font-bold text-purple-500/80 uppercase tracking-widest">
-                                    {company.taxID}
-                                </p>
                             </div>
                         </div>
                     </div>
+
 
                     {/* Withdraw Section */}
                     <Card className="border-[var(--accent-primary)]/20 shadow-xl shadow-[var(--accent-glow)]">
@@ -220,24 +198,10 @@ export function Financeiro() {
                                 {isWithdrawing ? 'PROCESSANDO...' : 'SOLICITAR RETIRADA'}
                             </Button>
                         </div>
-
-                        <div className="mt-8 p-5 bg-[var(--bg-tertiary)] border border-[var(--border-subtle)] rounded-2xl">
-                            <div className="flex items-start gap-4">
-                                <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-                                    <AlertCircle size={20} className="flex-shrink-0" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-black text-[var(--text-primary)] uppercase tracking-wider">Protocolo de Segurança</p>
-                                    <p className="text-sm text-[var(--text-secondary)] mt-1 font-medium leading-relaxed">
-                                        Saques solicitados via Woovi são processados em conformidade com as normas do BACEN.
-                                        O tempo médio de liquidação é de <span className="text-[var(--text-primary)] font-bold italic">1 dia útil</span>.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
                     </Card>
                 </>
-            )}
+            )
+            }
         </div>
     );
 }

@@ -27,6 +27,8 @@ export interface Product {
     name: string;
     description: string | null;
     image_url: string | null;
+    cover_image_url: string | null;
+    order_bump_ids: string[];
     created_at: string;
     updated_at: string;
     product_plans: ProductPlan[];
@@ -43,6 +45,7 @@ export interface OrderBump {
     image_url: string | null;
     box_color: string;
     text_color: string;
+    button_text?: string;
     is_active: boolean;
     created_at: string;
 }
@@ -89,6 +92,9 @@ export interface CheckoutSettings {
     button_text: string;
     logo_url: string | null;
     footer_text: string;
+    cpf_enabled: boolean;
+    order_bump_title: string;
+    order_bump_button_text: string;
     updated_at: string;
 }
 
@@ -120,4 +126,5 @@ export interface CheckoutFormData {
     name: string;
     email: string;
     phone: string;
+    cpf: string;
 }

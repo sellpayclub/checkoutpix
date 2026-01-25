@@ -93,10 +93,10 @@ export function Pixels() {
     if (isLoading) {
         return (
             <div className="p-8 animate-pulse">
-                <div className="h-8 bg-gray-200 rounded w-48 mb-8" />
+                <div className="h-8 bg-[var(--bg-tertiary)] rounded w-48 mb-8" />
                 <div className="space-y-6">
-                    <div className="h-32 bg-gray-200 rounded-xl" />
-                    <div className="h-48 bg-gray-200 rounded-xl" />
+                    <div className="h-32 bg-[var(--bg-tertiary)] rounded-xl" />
+                    <div className="h-48 bg-[var(--bg-tertiary)] rounded-xl" />
                 </div>
             </div>
         );
@@ -152,9 +152,9 @@ export function Pixels() {
             {/* Pixels List */}
             {pixels.length === 0 ? (
                 <Card className="text-center py-12">
-                    <Facebook size={48} className="mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-500">Nenhum pixel adicionado</p>
-                    <p className="text-sm text-gray-400 mt-1">Adicione seu primeiro pixel para rastrear conversões</p>
+                    <Facebook size={48} className="mx-auto text-[var(--text-muted)] mb-4" />
+                    <p className="text-[var(--text-secondary)]">Nenhum pixel adicionado</p>
+                    <p className="text-sm text-[var(--text-tertiary)] mt-1">Adicione seu primeiro pixel para rastrear conversões</p>
                 </Card>
             ) : (
                 <div className="space-y-4">

@@ -52,10 +52,10 @@ export function Produtos() {
     if (isLoading) {
         return (
             <div className="p-8 gradient-mesh min-h-screen animate-pulse">
-                <div className="h-12 bg-white rounded-xl w-48 mb-8 shadow-sm" />
+                <div className="h-12 bg-[var(--bg-card)] rounded-xl w-48 mb-8 shadow-sm" />
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[1, 2, 3].map((i) => (
-                        <div key={i} className="h-80 bg-white rounded-2xl shadow-sm" />
+                        <div key={i} className="h-80 bg-[var(--bg-card)] rounded-2xl shadow-sm" />
                     ))}
                 </div>
             </div>
@@ -84,8 +84,8 @@ export function Produtos() {
                     <div className="empty-state-icon mx-auto">
                         <Package size={36} />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">Nenhum produto criado</h3>
-                    <p className="text-gray-500 mb-8 max-w-md mx-auto">
+                    <h3 className="text-xl font-bold text-[var(--text-primary)] mb-2">Nenhum produto criado</h3>
+                    <p className="text-[var(--text-secondary)] mb-8 max-w-md mx-auto">
                         Crie seu primeiro produto digital e comece a vender com checkout PIX transparente
                     </p>
                     <Button icon={<Plus size={18} />} onClick={() => navigate('/produtos/novo')}>

@@ -15,6 +15,11 @@ export function Configuracoes() {
     const [buttonText, setButtonText] = useState('FINALIZAR COMPRA');
     const [footerText, setFooterText] = useState('© 2026 SellPay. Todos os direitos reservados.');
 
+    // New settings
+    const [cpfEnabled, setCpfEnabled] = useState(false);
+    const [orderBumpTitle, setOrderBumpTitle] = useState('Aproveite essa oferta especial!');
+    const [orderBumpButtonText, setOrderBumpButtonText] = useState('Adicionar oferta');
+
     // Logo
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -43,6 +48,9 @@ export function Configuracoes() {
                 setLogoPreview(settings.logo_url);
                 setCoverUrl(settings.cover_image_url || null);
                 setCoverPreview(settings.cover_image_url || null);
+                setCpfEnabled(settings.cpf_enabled || false);
+                setOrderBumpTitle(settings.order_bump_title || 'Aproveite essa oferta especial!');
+                setOrderBumpButtonText(settings.order_bump_button_text || 'Adicionar oferta');
             }
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -90,6 +98,9 @@ export function Configuracoes() {
                 footer_text: footerText,
                 logo_url: uploadedLogoUrl || undefined,
                 cover_image_url: uploadedCoverUrl || undefined,
+                cpf_enabled: cpfEnabled,
+                order_bump_title: orderBumpTitle,
+                order_bump_button_text: orderBumpButtonText,
             });
 
             alert('Configurações salvas com sucesso!');
@@ -244,6 +255,37 @@ export function Configuracoes() {
                                 )}
                             </div>
                         </Card>
+
+                        {/* Configurações Adicionais */}
+                        <Card>
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                                    <ShieldCheck size={20} />
+                                </div>
+                                <h2 className="text-xl font-black text-[var(--text-primary)] italic uppercase tracking-tighter">Opções <span className="text-purple-500">Extras</span></h2>
+                            </div>
+
+                            <div className="space-y-6">
+                                {/* CPF Toggle */}
+                                <button
+                                    onClick={() => setCpfEnabled(!cpfEnabled)}
+                                    className={`w-full flex items-center justify-between p-5 rounded-2xl border-2 transition-all ${cpfEnabled ? 'border-purple-500 bg-purple-500/10 shadow-md' : 'border-[var(--border-color)] bg-[var(--bg-tertiary)] opacity-60'}`}
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cpfEnabled ? 'bg-purple-500 text-white' : 'bg-[var(--bg-primary)] text-[var(--text-muted)]'}`}>
+                                            <ShieldCheck size={18} />
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="text-sm font-black text-[var(--text-primary)] uppercase tracking-tighter">Solicitar CPF</p>
+                                            <p className="text-xs font-medium text-[var(--text-secondary)]">Campo de CPF no checkout</p>
+                                        </div>
+                                    </div>
+                                    <div className={`w-12 h-6 rounded-full relative transition-all ${cpfEnabled ? 'bg-purple-500' : 'bg-[var(--bg-primary)]'}`}>
+                                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${cpfEnabled ? 'right-1' : 'left-1'}`} />
+                                    </div>
+                                </button>
+                            </div>
+                        </Card>
                     </div>
 
                     {/* Style Section */}
@@ -269,7 +311,7 @@ export function Configuracoes() {
                                         />
                                         <div className="flex-1">
                                             <p className="text-xs font-black text-[var(--text-primary)] mb-1">{primaryColor.toUpperCase()}</p>
-                                            <p className="text-[10px] font-medium text-[var(--text-tertiary)]">HEXADECIMAL</p>
+                                            <p className="text-xs font-medium text-[var(--text-tertiary)]">HEXADECIMAL</p>
                                         </div>
                                     </div>
                                 </div>
@@ -282,6 +324,30 @@ export function Configuracoes() {
                                         placeholder="FINALIZAR COMPRA"
                                         className="text-center font-black italic tracking-wider"
                                     />
+                                </div>
+
+                                <div className="pt-6 border-t border-[var(--border-subtle)]">
+                                    <p className="block text-xs font-black text-[var(--text-primary)] mb-4 uppercase tracking-widest text-center">ORDER BUMP CONFIG</p>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-[var(--text-secondary)] mb-2 uppercase">Título da Seção</label>
+                                            <Input
+                                                value={orderBumpTitle}
+                                                onChange={(e) => setOrderBumpTitle(e.target.value)}
+                                                placeholder="Aproveite essa oferta especial!"
+                                                className="text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-[var(--text-secondary)] mb-2 uppercase">Texto do Botão</label>
+                                            <Input
+                                                value={orderBumpButtonText}
+                                                onChange={(e) => setOrderBumpButtonText(e.target.value)}
+                                                placeholder="Adicionar oferta"
+                                                className="text-sm"
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div>

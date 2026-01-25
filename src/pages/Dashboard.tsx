@@ -119,10 +119,10 @@ export function Dashboard() {
         return (
             <div className="p-8 gradient-mesh min-h-screen">
                 <div className="animate-pulse space-y-8">
-                    <div className="h-12 bg-white rounded-xl w-64 shadow-sm" />
+                    <div className="h-12 bg-[var(--bg-card)] rounded-xl w-64 shadow-sm" />
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {[1, 2, 3, 4, 5, 6].map((i) => (
-                            <div key={i} className="h-36 bg-white rounded-2xl shadow-sm" />
+                            <div key={i} className="h-36 bg-[var(--bg-card)] rounded-2xl shadow-sm" />
                         ))}
                     </div>
                 </div>
@@ -201,35 +201,35 @@ export function Dashboard() {
                 {/* Top Products */}
                 <Card className="lg:col-span-1">
                     <div className="flex items-center gap-3 mb-6">
-                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center">
-                            <Star size={20} className="text-purple-600" />
+                        <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                            <Star size={20} className="text-purple-500" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold text-gray-900">Produtos Mais Vendidos</h2>
-                            <p className="text-sm text-gray-500">Top 5 em vendas</p>
+                            <h2 className="text-lg font-bold text-[var(--text-primary)]">Produtos Mais Vendidos</h2>
+                            <p className="text-sm text-[var(--text-secondary)]">Top 5 em vendas</p>
                         </div>
                     </div>
 
                     {topProducts.length === 0 ? (
                         <div className="text-center py-8">
-                            <Package size={32} className="mx-auto text-gray-300 mb-2" />
-                            <p className="text-gray-500 text-sm">Nenhuma venda ainda</p>
+                            <Package size={32} className="mx-auto text-[var(--text-muted)] mb-2" />
+                            <p className="text-[var(--text-secondary)] text-sm">Nenhuma venda ainda</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             {topProducts.map((product, index) => (
                                 <div key={product.id} className="flex items-center gap-4">
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm ${index === 0 ? 'bg-yellow-500' :
-                                        index === 1 ? 'bg-gray-400' :
-                                            index === 2 ? 'bg-amber-600' : 'bg-gray-300'
+                                        index === 1 ? 'bg-zinc-400' :
+                                            index === 2 ? 'bg-amber-600' : 'bg-zinc-500'
                                         }`}>
                                         {index + 1}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-gray-900 truncate">{product.name}</p>
-                                        <p className="text-sm text-gray-500">{product.sales} vendas</p>
+                                        <p className="font-semibold text-[var(--text-primary)] truncate">{product.name}</p>
+                                        <p className="text-sm text-[var(--text-secondary)]">{product.sales} vendas</p>
                                     </div>
-                                    <p className="font-bold text-emerald-600">{formatPrice(product.revenue)}</p>
+                                    <p className="font-bold text-emerald-500">{formatPrice(product.revenue)}</p>
                                 </div>
                             ))}
                         </div>
@@ -238,15 +238,15 @@ export function Dashboard() {
 
                 {/* Recent Orders */}
                 <Card padding="none" className="lg:col-span-2">
-                    <div className="p-6 border-b border-gray-100">
+                    <div className="p-6 border-b border-[var(--border-color)]">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
-                                    <ShoppingCart size={20} className="text-emerald-600" />
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                                    <ShoppingCart size={20} className="text-emerald-500" />
                                 </div>
                                 <div>
-                                    <h2 className="text-lg font-bold text-gray-900">Pedidos Recentes</h2>
-                                    <p className="text-sm text-gray-500">Últimas 10 transações</p>
+                                    <h2 className="text-lg font-bold text-[var(--text-primary)]">Pedidos Recentes</h2>
+                                    <p className="text-sm text-[var(--text-secondary)]">Últimas 10 transações</p>
                                 </div>
                             </div>
                             <Button variant="ghost" size="sm" icon={<ArrowUpRight size={16} />}>
@@ -260,8 +260,8 @@ export function Dashboard() {
                             <div className="empty-state-icon">
                                 <Zap size={32} />
                             </div>
-                            <h3 className="text-lg font-semibold text-gray-700 mb-2">Nenhum pedido ainda</h3>
-                            <p className="text-gray-500 max-w-sm mx-auto">
+                            <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Nenhum pedido ainda</h3>
+                            <p className="text-[var(--text-secondary)] max-w-sm mx-auto">
                                 Crie um produto e compartilhe o link do checkout para começar a vender!
                             </p>
                         </div>
@@ -283,22 +283,22 @@ export function Dashboard() {
                                         <tr key={order.id} className="animate-fade-in">
                                             <td>
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                                                        <span className="font-semibold text-gray-600">
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--border-color)] flex items-center justify-center">
+                                                        <span className="font-semibold text-[var(--text-secondary)]">
                                                             {order.customer_name.charAt(0).toUpperCase()}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <p className="font-semibold text-gray-900">{order.customer_name}</p>
-                                                        <p className="text-sm text-gray-500">{order.customer_email}</p>
+                                                        <p className="font-semibold text-[var(--text-primary)]">{order.customer_name}</p>
+                                                        <p className="text-sm text-[var(--text-secondary)]">{order.customer_email}</p>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td>
-                                                <p className="font-medium text-gray-900">{order.product?.name || '-'}</p>
+                                                <p className="font-medium text-[var(--text-primary)]">{order.product?.name || '-'}</p>
                                             </td>
                                             <td>
-                                                <p className="font-bold text-gray-900">{formatPrice(order.amount)}</p>
+                                                <p className="font-bold text-[var(--text-primary)]">{formatPrice(order.amount)}</p>
                                             </td>
                                             <td>
                                                 <Badge
@@ -313,11 +313,11 @@ export function Dashboard() {
                                                 </Badge>
                                             </td>
                                             <td>
-                                                <p className="text-sm text-gray-500">{formatDateTime(order.created_at)}</p>
+                                                <p className="text-sm text-[var(--text-secondary)]">{formatDateTime(order.created_at)}</p>
                                             </td>
                                             <td>
-                                                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                                    <Eye size={18} className="text-gray-400" />
+                                                <button className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors">
+                                                    <Eye size={18} className="text-[var(--text-tertiary)]" />
                                                 </button>
                                             </td>
                                         </tr>

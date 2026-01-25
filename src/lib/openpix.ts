@@ -76,14 +76,18 @@ export function formatPrice(cents: number): string {
 
 /**
  * Parse price string (e.g., "27,00") to cents
+ * Returns 0 for invalid inputs
  */
 export function parsePriceToCents(priceString: string): number {
+    if (!priceString || typeof priceString !== 'string') return 0;
     // Remove currency symbol and whitespace
     const cleaned = priceString.replace(/[R$\s]/g, '').trim();
+    if (!cleaned) return 0;
     // Replace comma with dot for parsing
     const normalized = cleaned.replace(',', '.');
     // Parse and convert to cents
-    return Math.round(parseFloat(normalized) * 100);
+    const value = parseFloat(normalized);
+    return isNaN(value) ? 0 : Math.round(value * 100);
 }
 
 /**

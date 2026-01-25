@@ -6,7 +6,6 @@ import {
     getProduct,
     createProduct,
     updateProduct,
-    createProductPlan,
     upsertDeliverable,
     uploadFile,
     getOrderBumps,
@@ -168,47 +167,67 @@ export function ProdutoForm() {
                         id: p.id || `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
                         product_id: id,
                         name: p.name,
-                        price: parsePriceToCents(p.price),
+                        price: parsePriceToCents(p.price) || 0,
                         is_recurring: p.isRecurring,
                         recurring_interval: p.recurringInterval,
                         is_active: true
-                    }))
+                    })),
+                    // For editing, we still handle deliverables separately for now, 
+                    // but we could also consolidate if needed.
                 });
+                productId = id;
             } else {
+                const productPlans = plans.map(p => ({
+                    name: p.name,
+                    price: parsePriceToCents(p.price) || 0,
+                    is_recurring: p.isRecurring,
+                    recurring_interval: p.recurringInterval,
+                }));
+
+                const productDeliverables = [];
+                if (deliverableType === 'redirect' && redirectUrl) {
+                    productDeliverables.push({
+                        type: 'redirect' as const,
+                        redirect_url: redirectUrl,
+                        file_url: null
+                    });
+                } else if (deliverableType === 'file' && deliverableFile) {
+                    const fileUrl = await uploadFile('deliverables', `${Date.now()}_${deliverableFile.name}`, deliverableFile);
+                    productDeliverables.push({
+                        type: 'file' as const,
+                        file_url: fileUrl,
+                        redirect_url: null
+                    });
+                }
+
                 const product = await createProduct({
                     name,
                     description,
                     image_url: imageUrl || undefined,
                     cover_image_url: coverUrl || undefined,
-                    order_bump_ids: selectedBumpIds
+                    order_bump_ids: selectedBumpIds,
+                    product_plans: productPlans,
+                    product_deliverables: productDeliverables
                 });
                 productId = product.id;
-
-                // Save plans for new product
-                for (const plan of plans) {
-                    await createProductPlan({
-                        product_id: productId,
-                        name: plan.name,
-                        price: parsePriceToCents(plan.price),
-                        is_recurring: plan.isRecurring,
-                        recurring_interval: plan.recurringInterval,
-                    });
-                }
             }
 
-            if (deliverableType === 'redirect' && redirectUrl) {
-                await upsertDeliverable({
-                    product_id: productId!,
-                    type: 'redirect',
-                    redirect_url: redirectUrl,
-                });
-            } else if (deliverableType === 'file' && deliverableFile) {
-                const fileUrl = await uploadFile('deliverables', `${Date.now()}_${deliverableFile.name}`, deliverableFile);
-                await upsertDeliverable({
-                    product_id: productId!,
-                    type: 'file',
-                    file_url: fileUrl,
-                });
+            // Sync deliverables only if editing (since creation is now atomic)
+            if (isEditing && productId) {
+                if (deliverableType === 'redirect' && redirectUrl) {
+                    await upsertDeliverable({
+                        product_id: productId,
+                        type: 'redirect',
+                        redirect_url: redirectUrl,
+                    });
+                } else if (deliverableType === 'file' && deliverableFile) {
+                    const fileUrl = await uploadFile('deliverables', `${Date.now()}_${deliverableFile.name}`, deliverableFile);
+                    await upsertDeliverable({
+                        product_id: productId,
+                        type: 'file',
+                        file_url: fileUrl,
+                    });
+                }
             }
 
             navigate('/produtos');

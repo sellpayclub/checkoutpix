@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Palette } from 'lucide-react';
+import { ArrowLeft, Palette, Upload, Trash2 } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui';
-import { getOrderBump, createOrderBump, updateOrderBump, getProducts, linkOrderBumpToProduct } from '../lib/supabase';
+import { getOrderBump, createOrderBump, updateOrderBump, getProducts, linkOrderBumpToProduct, uploadFile } from '../lib/supabase';
 import { parsePriceToCents } from '../lib/openpix';
 
 export function OrderBumpForm() {
@@ -18,9 +18,15 @@ export function OrderBumpForm() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');
+    const [buttonText, setButtonText] = useState('');
     const [boxColor, setBoxColor] = useState('#22c55e');
     const [textColor, setTextColor] = useState('#ffffff');
     const [isActive, setIsActive] = useState(true);
+
+    // Image Upload
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageUrl, setImageUrl] = useState<string | null>(null);
 
     // Products
     const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
@@ -43,9 +49,12 @@ export function OrderBumpForm() {
                     setTitle(bump.title);
                     setDescription(bump.description || '');
                     setPrice((bump.price / 100).toFixed(2).replace('.', ','));
+                    setButtonText(bump.button_text || '');
                     setBoxColor(bump.box_color);
                     setTextColor(bump.text_color);
                     setIsActive(bump.is_active);
+                    setImageUrl(bump.image_url);
+                    setImagePreview(bump.image_url);
                     // Note: Would need to query product_order_bumps to get linked products
                 }
             }
@@ -65,14 +74,21 @@ export function OrderBumpForm() {
 
         setIsSaving(true);
         try {
+            let uploadedImageUrl = imageUrl;
+            if (imageFile) {
+                uploadedImageUrl = await uploadFile('bumps', `${Date.now()}_${imageFile.name}`, imageFile);
+            }
+
             const bumpData = {
                 name,
                 title,
                 description: description || undefined,
                 price: parsePriceToCents(price),
+                button_text: buttonText || undefined,
                 box_color: boxColor,
                 text_color: textColor,
                 is_active: isActive,
+                image_url: uploadedImageUrl || undefined,
             };
 
             if (isEditing && id) {
@@ -97,8 +113,8 @@ export function OrderBumpForm() {
     if (isLoading) {
         return (
             <div className="p-8 animate-pulse">
-                <div className="h-8 bg-gray-200 rounded w-64 mb-8" />
-                <div className="h-96 bg-gray-200 rounded-xl" />
+                <div className="h-8 bg-[var(--bg-tertiary)] rounded w-64 mb-8" />
+                <div className="h-96 bg-[var(--bg-tertiary)] rounded-xl" />
             </div>
         );
     }
@@ -109,9 +125,9 @@ export function OrderBumpForm() {
             <div className="flex items-center gap-4 mb-8">
                 <button
                     onClick={() => navigate('/order-bumps')}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors"
                 >
-                    <ArrowLeft size={20} className="text-gray-600" />
+                    <ArrowLeft size={20} className="text-[var(--text-secondary)]" />
                 </button>
                 <div>
                     <h1 className="text-2xl font-bold text-sellpay-text">
@@ -145,6 +161,14 @@ export function OrderBumpForm() {
                             required
                         />
 
+                        <Input
+                            label="Texto do Botão (Opcional)"
+                            value={buttonText}
+                            onChange={(e) => setButtonText(e.target.value)}
+                            placeholder="Ex: Adicionar oferta"
+                            className="bg-gray-50 bg-opacity-50"
+                        />
+
                         <div>
                             <label className="block text-sm font-medium text-sellpay-text mb-1.5">
                                 Descrição (opcional)
@@ -165,6 +189,56 @@ export function OrderBumpForm() {
                             placeholder="0,00"
                             required
                         />
+
+                        {/* Image Upload */}
+                        <div>
+                            <label className="block text-sm font-medium text-sellpay-text mb-2">
+                                Imagem do Produto (Opcional)
+                            </label>
+                            <div className="flex items-center justify-center w-full">
+                                {imagePreview ? (
+                                    <div className="relative group w-full h-48 rounded-xl overflow-hidden border-2 border-gray-200">
+                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-contain bg-gray-50" />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <Button
+                                                type="button"
+                                                variant="danger"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setImageFile(null);
+                                                    setImagePreview(null);
+                                                    setImageUrl(null);
+                                                }}
+                                                icon={<Trash2 size={16} />}
+                                            >
+                                                Remover
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <Upload className="w-8 h-8 mb-4 text-gray-500" />
+                                            <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Clique para enviar</span> ou arraste e solte</p>
+                                            <p className="text-xs text-gray-500">PNG, JPG ou WEBP (Max. 2MB)</p>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    setImageFile(file);
+                                                    const url = URL.createObjectURL(file);
+                                                    setImagePreview(url);
+                                                }
+                                            }}
+                                        />
+                                    </label>
+                                )}
+                            </div>
+                        </div>
 
                         <div className="flex items-center gap-3">
                             <input

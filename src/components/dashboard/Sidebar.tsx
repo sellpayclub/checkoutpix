@@ -12,7 +12,6 @@ import {
     Wallet,
     Moon,
     Sun,
-    ShieldCheck,
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -52,10 +51,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                     {!isCollapsed && (
                         <div className="animate-fade-in">
                             <span className="font-extrabold text-2xl tracking-tighter italic logo-text">SELL<span className="text-[var(--accent-primary)]">PAY</span></span>
-                            <div className="flex items-center gap-1.5 -mt-1">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <p className="text-[10px] font-black text-[var(--text-tertiary)] uppercase tracking-widest">Enterprise</p>
-                            </div>
                         </div>
                     )}
                 </div>
@@ -117,24 +112,6 @@ export function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
                         </div>
                     )}
                 </button>
-
-                {/* Account/Status Badge */}
-                {!isCollapsed && (
-                    <div className="p-4 rounded-2xl bg-gradient-to-br from-black to-zinc-900 border border-white/5 shadow-2xl animate-fade-in">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                                <ShieldCheck size={16} className="text-emerald-500" />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">Status</p>
-                                <p className="text-xs font-bold text-white tracking-tight">PROTEGIDO</p>
-                            </div>
-                        </div>
-                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                            <div className="h-full w-[85%] bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981]" />
-                        </div>
-                    </div>
-                )}
             </div>
 
             {/* Toggle Button (Floating) */}
