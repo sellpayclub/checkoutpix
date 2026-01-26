@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet, Navigate } from 'react-router-dom';
 import { Sidebar } from './components/dashboard';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { Login } from './pages/Login';
 
 // Pages
 import { Dashboard } from './pages/Dashboard';
@@ -33,33 +35,59 @@ function DashboardLayout() {
   );
 }
 
+// Protected Route Component
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-app)] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--accent-primary)]"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Public Checkout Routes - Always Light Mode */}
-        <Route path="/checkout/:productId/:planId" element={<Checkout />} />
-        <Route path="/obrigado/:correlationId" element={<Obrigado />} />
+      <AuthProvider>
+        <Routes>
+          {/* Public Checkout Routes - Always Light Mode */}
+          <Route path="/checkout/:productId/:planId" element={<Checkout />} />
+          <Route path="/obrigado/:correlationId" element={<Obrigado />} />
 
-        {/* Dashboard Routes - With Theme Provider */}
-        <Route element={
-          <ThemeProvider>
-            <DashboardLayout />
-          </ThemeProvider>
-        }>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/produtos" element={<Produtos />} />
-          <Route path="/produtos/novo" element={<ProdutoForm />} />
-          <Route path="/produtos/:id" element={<ProdutoForm />} />
-          <Route path="/vendas" element={<Vendas />} />
-          <Route path="/order-bumps" element={<OrderBumps />} />
-          <Route path="/order-bumps/novo" element={<OrderBumpForm />} />
-          <Route path="/order-bumps/:id" element={<OrderBumpForm />} />
-          <Route path="/financeiro" element={<Financeiro />} />
-          <Route path="/pixels" element={<Pixels />} />
-          <Route path="/configuracoes" element={<Configuracoes />} />
-        </Route>
-      </Routes>
+          {/* Login Route */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Dashboard Routes - Protected & With Theme Provider */}
+          <Route element={
+            <ProtectedRoute>
+              <ThemeProvider>
+                <DashboardLayout />
+              </ThemeProvider>
+            </ProtectedRoute>
+          }>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/produtos" element={<Produtos />} />
+            <Route path="/produtos/novo" element={<ProdutoForm />} />
+            <Route path="/produtos/:id" element={<ProdutoForm />} />
+            <Route path="/vendas" element={<Vendas />} />
+            <Route path="/order-bumps" element={<OrderBumps />} />
+            <Route path="/order-bumps/novo" element={<OrderBumpForm />} />
+            <Route path="/order-bumps/:id" element={<OrderBumpForm />} />
+            <Route path="/financeiro" element={<Financeiro />} />
+            <Route path="/pixels" element={<Pixels />} />
+            <Route path="/configuracoes" element={<Configuracoes />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
