@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, ShoppingCart, TrendingUp, Package, ArrowUpRight, Eye, Zap, Clock, Percent, Target, Star, Wallet } from 'lucide-react';
+import { DollarSign, ShoppingCart, TrendingUp, Package, ArrowUpRight, Eye, Zap, Clock, Percent, Target, Star, Wallet, Repeat, Users, BarChart3, Globe } from 'lucide-react';
 import { StatCard } from '../components/dashboard';
 import { Card, Badge, Button } from '../components/ui';
 import { getDashboardStats, getOrders, getProducts } from '../lib/supabase';
@@ -18,6 +18,9 @@ interface ExtendedStats {
     orderBumpRevenue: number;
     averageTicket: number;
     todayRevenue: number;
+    activeSubscriptions: number;
+    mrr: number;
+    arr: number;
 }
 
 interface ProductSales {
@@ -39,6 +42,9 @@ export function Dashboard() {
         orderBumpRevenue: 0,
         averageTicket: 0,
         todayRevenue: 0,
+        activeSubscriptions: 0,
+        mrr: 0,
+        arr: 0,
     });
     const [recentOrders, setRecentOrders] = useState<Order[]>([]);
     const [topProducts, setTopProducts] = useState<ProductSales[]>([]);
@@ -46,6 +52,8 @@ export function Dashboard() {
 
     useEffect(() => {
         loadData();
+        const interval = setInterval(loadData, 5000); // Real-time update check every 5s
+        return () => clearInterval(interval);
     }, []);
 
     async function loadData() {
@@ -98,6 +106,20 @@ export function Dashboard() {
                 .sort((a, b) => b.sales - a.sales)
                 .slice(0, 5);
 
+            // Calculate Recurring Stats
+            const recurringOrders = approvedOrders.filter(o => o.plan?.is_recurring);
+            const activeSubscriptions = recurringOrders.length;
+
+            let mrr = 0;
+            recurringOrders.forEach(order => {
+                if (order.plan?.recurring_interval === 'monthly') {
+                    mrr += order.amount;
+                } else if (order.plan?.recurring_interval === 'yearly') {
+                    mrr += order.amount / 12;
+                }
+            });
+            const arr = mrr * 12;
+
             setStats({
                 ...baseStats,
                 pendingRevenue,
@@ -105,6 +127,9 @@ export function Dashboard() {
                 orderBumpRevenue,
                 averageTicket,
                 todayRevenue,
+                activeSubscriptions,
+                mrr,
+                arr,
             });
             setRecentOrders(orders.slice(0, 10));
             setTopProducts(sortedProducts);
@@ -174,7 +199,7 @@ export function Dashboard() {
             </div>
 
             {/* Stats Grid - Row 2 */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
                 <StatCard
                     title="Vendas com Order Bump"
                     value={formatPrice(stats.orderBumpRevenue)}
@@ -193,6 +218,37 @@ export function Dashboard() {
                     value={formatPrice(stats.todayRevenue)}
                     icon={<Wallet size={24} />}
                     color="success"
+                />
+            </div>
+
+            {/* Recurring Stats Grid */}
+            <h2 className="text-xl font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                    <Repeat size={20} className="text-blue-500" />
+                </div>
+                Assinaturas & Recorrência
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <StatCard
+                    title="Assinaturas Ativas"
+                    value={stats.activeSubscriptions.toString()}
+                    subtitle="Recorrentes ativos"
+                    icon={<Users size={24} />}
+                    color="primary"
+                />
+                <StatCard
+                    title="MRR"
+                    value={formatPrice(stats.mrr)}
+                    subtitle="Receita Recorrente Mensal"
+                    icon={<BarChart3 size={24} />}
+                    color="primary"
+                />
+                <StatCard
+                    title="ARR"
+                    value={formatPrice(stats.arr)}
+                    subtitle="Receita Recorrente Anual"
+                    icon={<Globe size={24} />}
+                    color="primary"
                 />
             </div>
 

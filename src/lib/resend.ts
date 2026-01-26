@@ -1,9 +1,4 @@
-// Resend Email Service
-// API para envio de emails transacionais
 
-const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY || '';
-const RESEND_API_URL = 'https://api.resend.com';
-const FROM_EMAIL = 'SellPay <noreply@sellpay.com.br>';
 
 interface EmailData {
     to: string;
@@ -12,23 +7,16 @@ interface EmailData {
 }
 
 /**
- * Send email via Resend API
+ * Send email via internal API (Vercel Function)
  */
 async function sendEmail(data: EmailData): Promise<boolean> {
-    if (!RESEND_API_KEY) {
-        console.warn('Resend API Key is missing. Check VITE_RESEND_API_KEY in .env');
-        return false;
-    }
-
     try {
-        const response = await fetch(`${RESEND_API_URL}/emails`, {
+        const response = await fetch('/api/send-email', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${RESEND_API_KEY}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                from: FROM_EMAIL,
                 to: data.to,
                 subject: data.subject,
                 html: data.html,
@@ -37,8 +25,7 @@ async function sendEmail(data: EmailData): Promise<boolean> {
 
         if (!response.ok) {
             const error = await response.json();
-            console.error('Resend API Error:', error);
-            console.error('Failed to send email to:', data.to);
+            console.error('Email Service Error:', error);
             return false;
         }
 
