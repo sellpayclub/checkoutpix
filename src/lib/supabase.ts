@@ -621,6 +621,24 @@ export async function updateCheckoutSettings(updates: Partial<CheckoutSettings>)
 
 // ============ Dashboard Stats ============
 
+// ============ Dashboard Stats & Analytics ============
+
+export async function recordCheckoutVisit(productId?: string) {
+    await supabase.from('checkout_visits').insert({
+        product_id: productId
+    });
+}
+
+export async function getVisits(startDate?: string, endDate?: string): Promise<number> {
+    let query = supabase.from('checkout_visits').select('*', { count: 'exact', head: true });
+
+    if (startDate) query = query.gte('created_at', startDate);
+    if (endDate) query = query.lte('created_at', endDate);
+
+    const { count } = await query;
+    return count || 0;
+}
+
 export async function getDashboardStats(startDate?: string, endDate?: string) {
     let query = supabase.from('orders').select('amount, status, created_at');
 
@@ -629,6 +647,13 @@ export async function getDashboardStats(startDate?: string, endDate?: string) {
 
     const { data: orders, error } = await query;
 
+    let totalVisits = 0;
+    try {
+        totalVisits = await getVisits(startDate, endDate);
+    } catch (e) {
+        console.error('Error fetching visits', e);
+    }
+
     if (error) {
         return {
             totalOrders: 0,
@@ -636,6 +661,7 @@ export async function getDashboardStats(startDate?: string, endDate?: string) {
             pendingOrders: 0,
             totalRevenue: 0,
             conversionRate: 0,
+            totalVisits: 0
         };
     }
 
@@ -646,14 +672,16 @@ export async function getDashboardStats(startDate?: string, endDate?: string) {
         .filter(o => o.status === 'APPROVED')
         .reduce((acc, o) => acc + o.amount, 0);
 
-    const conversionRate = totalOrders > 0 ? (approvedOrders / totalOrders) * 100 : 0;
+    // Conversion Rate: Approved Orders / Total Checkout Visits
+    const conversionRate = totalVisits > 0 ? (approvedOrders / totalVisits) * 100 : 0;
 
     return {
         totalOrders,
         approvedOrders,
         pendingOrders,
         totalRevenue,
-        conversionRate
+        conversionRate,
+        totalVisits
     };
 }
 

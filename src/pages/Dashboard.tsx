@@ -14,6 +14,7 @@ interface ExtendedStats {
     totalRevenue: number;
     pendingRevenue: number;
     conversionRate: number;
+    totalVisits: number;
     orderBumpOrders: number;
     orderBumpRevenue: number;
     averageTicket: number;
@@ -38,6 +39,7 @@ export function Dashboard() {
         totalRevenue: 0,
         pendingRevenue: 0,
         conversionRate: 0,
+        totalVisits: 0,
         orderBumpOrders: 0,
         orderBumpRevenue: 0,
         averageTicket: 0,
@@ -49,18 +51,64 @@ export function Dashboard() {
     const [recentOrders, setRecentOrders] = useState<Order[]>([]);
     const [topProducts, setTopProducts] = useState<ProductSales[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null, label: string }>({
+        start: new Date(new Date().setHours(0, 0, 0, 0)), // Today start
+        end: new Date(new Date().setHours(23, 59, 59, 999)), // Today end
+        label: 'Hoje'
+    });
 
     useEffect(() => {
         loadData();
         const interval = setInterval(loadData, 5000); // Real-time update check every 5s
         return () => clearInterval(interval);
-    }, []);
+    }, [dateRange]);
+
+    function handleDateFilter(range: string) {
+        const now = new Date();
+        let start = new Date();
+        let end = new Date();
+
+        switch (range) {
+            case 'today':
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+                setDateRange({ start, end, label: 'Hoje' });
+                break;
+            case 'yesterday':
+                start.setDate(start.getDate() - 1);
+                start.setHours(0, 0, 0, 0);
+                end.setDate(end.getDate() - 1);
+                end.setHours(23, 59, 59, 999);
+                setDateRange({ start, end, label: 'Ontem' });
+                break;
+            case 'last7':
+                start.setDate(start.getDate() - 7);
+                start.setHours(0, 0, 0, 0);
+                setDateRange({ start, end: now, label: 'Últimos 7 dias' });
+                break;
+            case 'last30':
+                start.setDate(start.getDate() - 30);
+                start.setHours(0, 0, 0, 0);
+                setDateRange({ start, end: now, label: 'Últimos 30 dias' });
+                break;
+            case 'thisMonth':
+                start.setDate(1);
+                start.setHours(0, 0, 0, 0);
+                setDateRange({ start, end: now, label: 'Este Mês' });
+                break;
+        }
+    }
 
     async function loadData() {
         try {
+            // Convert to string for API if needed, or pass Date if API handles it. 
+            // My API update expectation: getDashboardStats(startDate, endDate) taking strings (ISO)
+            const startStr = dateRange.start?.toISOString();
+            const endStr = dateRange.end?.toISOString();
+
             const [baseStats, ordersData, productsData] = await Promise.all([
-                getDashboardStats(),
-                getOrders(),
+                getDashboardStats(startStr, endStr), // Updated signature
+                getOrders({ startDate: startStr, endDate: endStr }), // Updated to pass object
                 getProducts(),
             ]);
 
@@ -158,16 +206,34 @@ export function Dashboard() {
     return (
         <div className="p-8 gradient-mesh min-h-screen">
             {/* Header */}
-            <div className="flex items-center justify-between mb-10 relative">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 relative gap-4">
                 <div className="relative z-10">
                     <h1 className="text-4xl font-black text-[var(--text-primary)] tracking-tight italic">
                         DASH<span className="text-[var(--accent-primary)]">BOARD</span>
                     </h1>
                     <p className="text-[var(--text-secondary)] mt-1 font-medium">Performance em tempo real</p>
                 </div>
+
                 <div className="flex items-center gap-3 relative z-10">
+                    <div className="relative">
+                        <select
+                            className="appearance-none bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-sm rounded-xl px-4 py-2 pr-8 focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer font-medium shadow-sm transition-all"
+                            onChange={(e) => handleDateFilter(e.target.value)}
+                            defaultValue="today"
+                        >
+                            <option value="today">Hoje</option>
+                            <option value="yesterday">Ontem</option>
+                            <option value="last7">Últimos 7 dias</option>
+                            <option value="last30">Últimos 30 dias</option>
+                            <option value="thisMonth">Este Mês</option>
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-[var(--text-secondary)]">
+                            <Clock size={14} />
+                        </div>
+                    </div>
+
                     <Badge variant="success" dot className="bg-[var(--accent-glow)] border border-[var(--accent-primary)]/20">
-                        Sistema Ativo
+                        {dateRange.label}
                     </Badge>
                 </div>
                 {/* Decorative element */}
@@ -193,6 +259,7 @@ export function Dashboard() {
                 <StatCard
                     title="Taxa de Conversão"
                     value={`${stats.conversionRate.toFixed(1)}%`}
+                    subtitle={`${stats.totalVisits} visitas no checkout`}
                     icon={<Percent size={24} />}
                     color="primary"
                 />
@@ -208,14 +275,14 @@ export function Dashboard() {
                     color="primary"
                 />
                 <StatCard
-                    title="Ticket Médio (Hoje)"
+                    title="Ticket Médio"
                     value={formatPrice(stats.averageTicket)}
                     icon={<TrendingUp size={24} />}
                     color="primary"
                 />
                 <StatCard
-                    title="Receita Hoje"
-                    value={formatPrice(stats.todayRevenue)}
+                    title={`Receita (${dateRange.label})`}
+                    value={formatPrice(stats.totalRevenue)}
                     icon={<Wallet size={24} />}
                     color="success"
                 />

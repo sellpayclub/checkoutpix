@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles } from 'lucide-react';
 import { Button } from '../components/ui';
-import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderStatus, getOrderBumps } from '../lib/supabase';
+import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderStatus, getOrderBumps, recordCheckoutVisit } from '../lib/supabase';
 import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, cleanPhone } from '../lib/openpix';
 import { sendPixGeneratedEmail, sendPurchaseApprovedEmail } from '../lib/resend';
 import { formatTimer, isValidEmail, isValidPhone, isValidCPF, formatCPF, formatPhoneMask, copyToClipboard } from '../lib/utils';
@@ -78,6 +78,9 @@ export function Checkout() {
     useEffect(() => {
         loadData();
         firePixelEvent('PageView');
+        if (productId) {
+            recordCheckoutVisit(productId);
+        }
     }, [productId, planId]);
 
     // Timer countdown
