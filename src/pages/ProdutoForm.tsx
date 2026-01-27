@@ -209,6 +209,9 @@ export function ProdutoForm() {
                     product_plans: productPlans,
                     product_deliverables: productDeliverables
                 });
+                if (!product) {
+                    throw new Error('Falha ao criar produto');
+                }
                 productId = product.id;
             }
 
