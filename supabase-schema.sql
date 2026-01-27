@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS products (
   name VARCHAR(255) NOT NULL,
   description TEXT,
   image_url TEXT,
+  cover_image_url TEXT, -- Missing column added
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -114,6 +115,10 @@ CREATE TABLE IF NOT EXISTS checkout_settings (
   button_text VARCHAR(50) DEFAULT 'FINALIZAR COMPRA',
   logo_url TEXT,
   footer_text VARCHAR(255) DEFAULT '© 2026 SellPay. Todos os direitos reservados.',
+  cover_image_url TEXT, -- Missing column added
+  cpf_enabled BOOLEAN DEFAULT FALSE, -- Missing column added
+  order_bump_title VARCHAR(255) DEFAULT 'Aproveite essa oferta especial!', -- Missing column added
+  order_bump_button_text VARCHAR(255) DEFAULT 'Adicionar oferta', -- Missing column added
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -152,14 +157,38 @@ CREATE POLICY "Allow all for facebook_pixels" ON facebook_pixels FOR ALL USING (
 CREATE POLICY "Allow all for checkout_settings" ON checkout_settings FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================
--- Storage Buckets
--- Execute em Storage -> New Bucket
+-- ATUALIZAÇÃO DE TABELAS EXISTENTES (SE JÁ CRIADAS)
+-- Execute isso se você já rodou o script anterior
 -- ============================================
--- Bucket: products (public)
--- Bucket: deliverables (public)  
--- Bucket: logos (public)
 
--- Para criar buckets via SQL:
+DO $$
+BEGIN
+    -- Add cover_image_url to products if not exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products' AND column_name = 'cover_image_url') THEN
+        ALTER TABLE products ADD COLUMN cover_image_url TEXT;
+    END IF;
+
+    -- Add missing columns to checkout_settings
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'cover_image_url') THEN
+        ALTER TABLE checkout_settings ADD COLUMN cover_image_url TEXT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'cpf_enabled') THEN
+        ALTER TABLE checkout_settings ADD COLUMN cpf_enabled BOOLEAN DEFAULT FALSE;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'order_bump_title') THEN
+        ALTER TABLE checkout_settings ADD COLUMN order_bump_title VARCHAR(255) DEFAULT 'Aproveite essa oferta especial!';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'order_bump_button_text') THEN
+        ALTER TABLE checkout_settings ADD COLUMN order_bump_button_text VARCHAR(255) DEFAULT 'Adicionar oferta';
+    END IF;
+END $$;
+
+-- ============================================
+-- Storage Buckets - Atualizado
+-- ============================================
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('products', 'products', true)
 ON CONFLICT (id) DO NOTHING;
@@ -172,10 +201,10 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('logos', 'logos', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Políticas de storage
-CREATE POLICY "Allow public read for products" ON storage.objects FOR SELECT USING (bucket_id = 'products');
-CREATE POLICY "Allow public insert for products" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'products');
-CREATE POLICY "Allow public read for deliverables" ON storage.objects FOR SELECT USING (bucket_id = 'deliverables');
-CREATE POLICY "Allow public insert for deliverables" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'deliverables');
-CREATE POLICY "Allow public read for logos" ON storage.objects FOR SELECT USING (bucket_id = 'logos');
-CREATE POLICY "Allow public insert for logos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'logos');
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('covers', 'covers', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Policies for covers
+CREATE POLICY "Allow public read for covers" ON storage.objects FOR SELECT USING (bucket_id = 'covers');
+CREATE POLICY "Allow public insert for covers" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'covers');
