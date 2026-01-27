@@ -672,9 +672,56 @@ export async function uploadFile(bucket: string, _path: string, file: File): Pro
         throw new Error(error.message);
     }
 
+
     const { data } = supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
 
     return data.publicUrl;
+}
+
+// ============ Short Links ============
+
+export async function createShortLink(originalUrl: string): Promise<string> {
+    const slug = Math.random().toString(36).substring(2, 6); // 4 char slug
+
+    // Check if exists
+    const { data: existing } = await supabase
+        .from('short_links')
+        .select('slug')
+        .eq('slug', slug)
+        .single();
+
+    if (existing) {
+        return createShortLink(originalUrl); // Try again
+    }
+
+    const { error } = await supabase
+        .from('short_links')
+        .insert({
+            slug,
+            original_url: originalUrl
+        });
+
+    if (error) throw new Error(error.message);
+
+    return slug;
+}
+
+export async function getShortLink(slug: string): Promise<string | null> {
+    const { data, error } = await supabase
+        .from('short_links')
+        .select('visits, original_url')
+        .eq('slug', slug)
+        .single();
+
+    if (error || !data) return null;
+
+    // Best effort increment
+    const currentVisits = data.visits || 0;
+
+    // Fire and forget update
+    supabase.from('short_links').update({ visits: currentVisits + 1 }).eq('slug', slug).then(() => { });
+
+    return data.original_url;
 }

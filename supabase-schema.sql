@@ -123,6 +123,17 @@ CREATE TABLE IF NOT EXISTS checkout_settings (
 );
 
 -- ============================================
+-- Short Links
+-- ============================================
+CREATE TABLE IF NOT EXISTS short_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug VARCHAR(50) UNIQUE NOT NULL,
+  original_url TEXT NOT NULL,
+  visits INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
 -- Indexes para performance
 -- ============================================
 CREATE INDEX IF NOT EXISTS idx_orders_correlation_id ON orders(correlation_id);
@@ -130,6 +141,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_product_id ON orders(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_plans_product_id ON product_plans(product_id);
+CREATE INDEX IF NOT EXISTS idx_short_links_slug ON short_links(slug);
 
 -- ============================================
 -- Row Level Security (RLS)
@@ -144,6 +156,7 @@ ALTER TABLE product_order_bumps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE facebook_pixels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checkout_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE short_links ENABLE ROW LEVEL SECURITY;
 
 -- Políticas públicas (para desenvolvimento sem auth)
 -- IMPORTANTE: Em produção, configure políticas mais restritivas
@@ -155,6 +168,7 @@ CREATE POLICY "Allow all for product_order_bumps" ON product_order_bumps FOR ALL
 CREATE POLICY "Allow all for orders" ON orders FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for facebook_pixels" ON facebook_pixels FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for checkout_settings" ON checkout_settings FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for short_links" ON short_links FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================
 -- ATUALIZAÇÃO DE TABELAS EXISTENTES (SE JÁ CRIADAS)

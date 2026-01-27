@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Copy, ExternalLink, Package } from 'lucide-react';
 import { Button, Card, Badge } from '../components/ui';
-import { getProducts, deleteProduct } from '../lib/supabase';
+import { getProducts, deleteProduct, createShortLink } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
 import { copyToClipboard } from '../lib/utils';
 import type { Product, ProductPlan } from '../types';
@@ -40,12 +40,29 @@ export function Produtos() {
         }
     }
 
+
     async function handleCopyLink(productId: string, planId: string) {
-        const url = `${window.location.origin}/checkout/${productId}/${planId}`;
-        const success = await copyToClipboard(url);
-        if (success) {
-            setCopiedId(planId);
-            setTimeout(() => setCopiedId(null), 2000);
+        // Original Long URL
+        const longUrl = `${window.location.origin}/checkout/${productId}/${planId}`;
+
+        try {
+            // Generate Short Link
+            const slug = await createShortLink(longUrl);
+            const shortUrl = `${window.location.origin}/c/${slug}`;
+
+            const success = await copyToClipboard(shortUrl);
+            if (success) {
+                setCopiedId(planId);
+                setTimeout(() => setCopiedId(null), 2000);
+            }
+        } catch (err) {
+            console.error('Falha ao encurtar link, usando longo', err);
+            // Fallback to long url
+            const success = await copyToClipboard(longUrl);
+            if (success) {
+                setCopiedId(planId);
+                setTimeout(() => setCopiedId(null), 2000);
+            }
         }
     }
 

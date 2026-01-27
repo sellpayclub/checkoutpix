@@ -17,6 +17,7 @@ import { Pixels } from './pages/Pixels';
 import { Configuracoes } from './pages/Configuracoes';
 import { Checkout } from './pages/Checkout';
 import { Obrigado } from './pages/Obrigado';
+import { ShortLinkRedirect } from './pages/ShortLinkRedirect';
 
 // Dashboard Layout with Sidebar
 function DashboardLayout() {
@@ -62,6 +63,7 @@ function App() {
           {/* Public Checkout Routes - Always Light Mode */}
           <Route path="/checkout/:productId/:planId" element={<Checkout />} />
           <Route path="/obrigado/:correlationId" element={<Obrigado />} />
+          <Route path="/c/:slug" element={<ShortLinkRedirect />} />
 
           {/* Login Route */}
           <Route path="/login" element={<Login />} />
