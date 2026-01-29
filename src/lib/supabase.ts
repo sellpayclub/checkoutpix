@@ -629,10 +629,10 @@ export async function getCheckoutSettings(): Promise<CheckoutSettings> {
     const { data, error } = await supabase
         .from('checkout_settings')
         .select('*')
-        .single();
+        .limit(1);
 
-    if (error || !data) {
-        // Return defaults if not found (or insert default if preferred, but let's just return default)
+    if (error || !data || data.length === 0) {
+        if (error) console.error('Error loading checkout settings:', error);
         return {
             id: 'default',
             timer_enabled: true,
@@ -651,18 +651,21 @@ export async function getCheckoutSettings(): Promise<CheckoutSettings> {
             updated_at: new Date().toISOString(),
         };
     }
-    return data;
+    return data[0];
 }
 
 export async function updateCheckoutSettings(updates: Partial<CheckoutSettings>): Promise<CheckoutSettings> {
-    // Check if settings exist
-    const { data: existing } = await supabase.from('checkout_settings').select('id').single();
+    // Check if settings exist (safely handle duplicates by taking first)
+    const { data: existing } = await supabase
+        .from('checkout_settings')
+        .select('id')
+        .limit(1);
 
-    if (existing) {
+    if (existing && existing.length > 0) {
         const { data, error } = await supabase
             .from('checkout_settings')
             .update({ ...updates, updated_at: new Date().toISOString() })
-            .eq('id', existing.id)
+            .eq('id', existing[0].id)
             .select()
             .single();
 

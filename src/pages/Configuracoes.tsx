@@ -119,9 +119,9 @@ export function Configuracoes() {
             });
 
             alert('Configurações salvas com sucesso!');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving settings:', error);
-            alert('Erro ao salvar configurações');
+            alert('Erro ao salvar configurações: ' + (error.message || 'Erro desconhecido'));
         } finally {
             setIsSaving(false);
         }
