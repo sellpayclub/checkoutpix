@@ -230,6 +230,30 @@ export async function updateProduct(id: string, updates: Partial<{
         throw new Error(error.message);
     }
 
+    // Update Product Plans if provided
+    if (updates.product_plans) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        const plansToUpsert = updates.product_plans.map(p => {
+            // If ID is not a valid UUID (e.g. it's a temp ID like '12345_abcde'), remove it to let DB generate a new one
+            if (!uuidRegex.test(p.id)) {
+                // Create a copy and remove id, preserving product_id
+                const { id: _, ...rest } = p;
+                return rest;
+            }
+            return p;
+        });
+
+        const { error: plansError } = await supabase
+            .from('product_plans')
+            .upsert(plansToUpsert);
+
+        if (plansError) {
+            console.error('Error updating plans:', plansError);
+            throw new Error(plansError.message);
+        }
+    }
+
     // Update Order Bumps Links if provided
     if (updates.order_bump_ids) {
         // Delete existing links
