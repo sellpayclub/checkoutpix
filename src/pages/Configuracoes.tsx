@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Clock, Palette, Type, Upload, Image, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Save, Clock, Palette, Type, Upload, Image, ShieldCheck, CheckCircle2, Send } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui';
 import { getCheckoutSettings, updateCheckoutSettings, uploadFile } from '../lib/supabase';
 
@@ -14,6 +14,7 @@ export function Configuracoes() {
     const [primaryColor, setPrimaryColor] = useState('#059669');
     const [buttonText, setButtonText] = useState('FINALIZAR COMPRA');
     const [footerText, setFooterText] = useState('© 2026 SellPay. Todos os direitos reservados.');
+    const [isTestingWebhook, setIsTestingWebhook] = useState(false);
 
     // New settings
     const [cpfEnabled, setCpfEnabled] = useState(false);
@@ -123,6 +124,56 @@ export function Configuracoes() {
             alert('Erro ao salvar configurações');
         } finally {
             setIsSaving(false);
+        }
+    }
+
+    async function handleTestWebhook() {
+        if (!webhookUrl) {
+            alert('Por favor, informe uma URL de webhook para testar.');
+            return;
+        }
+
+        setIsTestingWebhook(true);
+        try {
+            const testPayload = {
+                event: 'sale_generated',
+                is_test: true,
+                created_at: new Date().toISOString(),
+                data: {
+                    id: 'test_order_' + Math.random().toString(36).substring(7),
+                    correlation_id: 'sellpay_test_' + Date.now(),
+                    amount: 9790, // R$ 97,90
+                    status: 'PENDING',
+                    customer: {
+                        name: 'Cliente Teste',
+                        email: 'teste@email.com',
+                        phone: '11999999999'
+                    },
+                    product: {
+                        name: 'Produto Teste',
+                        plan: 'Plano Anual'
+                    }
+                }
+            };
+
+            const response = await fetch(webhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(testPayload),
+            });
+
+            if (response.ok) {
+                alert('Webhook de teste enviado com sucesso!');
+            } else {
+                throw new Error('Falha ao enviar webhook (Status: ' + response.status + ')');
+            }
+        } catch (error: any) {
+            console.error('Webhook test error:', error);
+            alert('Erro ao testar webhook: ' + (error.message || 'Erro desconhecido'));
+        } finally {
+            setIsTestingWebhook(false);
         }
     }
 
@@ -314,13 +365,26 @@ export function Configuracoes() {
                             </div>
 
                             <div className="space-y-6">
-                                <Input
-                                    label="URL DO WEBHOOK"
-                                    value={webhookUrl}
-                                    onChange={(e) => setWebhookUrl(e.target.value)}
-                                    placeholder="https://n8n.seusite.com/webhook/..."
-                                    className="font-mono text-xs"
-                                />
+                                <div className="space-y-2">
+                                    <Input
+                                        label="URL DO WEBHOOK"
+                                        value={webhookUrl}
+                                        onChange={(e) => setWebhookUrl(e.target.value)}
+                                        placeholder="https://n8n.seusite.com/webhook/..."
+                                        className="font-mono text-xs"
+                                    />
+                                    <div className="flex justify-end">
+                                        <button
+                                            type="button"
+                                            onClick={handleTestWebhook}
+                                            disabled={!webhookUrl || isTestingWebhook}
+                                            className="text-xs font-bold text-indigo-500 hover:text-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
+                                        >
+                                            {isTestingWebhook ? 'Enviando...' : 'Enviar teste (JSON)'}
+                                            <Send size={12} />
+                                        </button>
+                                    </div>
+                                </div>
 
                                 <div className="space-y-3">
                                     <label className="block text-xs font-black text-[var(--text-primary)] mb-2 opacity-70 uppercase tracking-widest">EVENTOS ATIVOS</label>
