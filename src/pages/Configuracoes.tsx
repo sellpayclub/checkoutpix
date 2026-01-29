@@ -19,6 +19,8 @@ export function Configuracoes() {
     const [cpfEnabled, setCpfEnabled] = useState(false);
     const [orderBumpTitle, setOrderBumpTitle] = useState('Aproveite essa oferta especial!');
     const [orderBumpButtonText, setOrderBumpButtonText] = useState('Adicionar oferta');
+    const [webhookUrl, setWebhookUrl] = useState('');
+    const [webhookEvents, setWebhookEvents] = useState<string[]>(['sale_generated', 'sale_approved']);
 
     // Logo
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -51,6 +53,8 @@ export function Configuracoes() {
                 setCpfEnabled(settings.cpf_enabled || false);
                 setOrderBumpTitle(settings.order_bump_title || 'Aproveite essa oferta especial!');
                 setOrderBumpButtonText(settings.order_bump_button_text || 'Adicionar oferta');
+                setWebhookUrl(settings.webhook_url || '');
+                setWebhookEvents(settings.webhook_events || ['sale_generated', 'sale_approved']);
             }
         } catch (error) {
             console.error('Error loading settings:', error);
@@ -73,6 +77,14 @@ export function Configuracoes() {
             setCoverFile(file);
             setCoverPreview(URL.createObjectURL(file));
         }
+    }
+
+    function toggleWebhookEvent(event: string) {
+        setWebhookEvents(prev =>
+            prev.includes(event)
+                ? prev.filter(e => e !== event)
+                : [...prev, event]
+        );
     }
 
     async function handleSave() {
@@ -101,6 +113,8 @@ export function Configuracoes() {
                 cpf_enabled: cpfEnabled,
                 order_bump_title: orderBumpTitle,
                 order_bump_button_text: orderBumpButtonText,
+                webhook_url: webhookUrl,
+                webhook_events: webhookEvents,
             });
 
             alert('Configurações salvas com sucesso!');
@@ -284,6 +298,65 @@ export function Configuracoes() {
                                         <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${cpfEnabled ? 'right-1' : 'left-1'}`} />
                                     </div>
                                 </button>
+                            </div>
+                        </Card>
+
+                        {/* Webhooks & Notifications */}
+                        <Card>
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-500">
+                                    <div className="w-5 h-5 relative">
+                                        <div className="absolute inset-0 bg-current rounded-full opacity-20 animate-ping" />
+                                        <div className="absolute inset-1 bg-current rounded-full" />
+                                    </div>
+                                </div>
+                                <h2 className="text-xl font-black text-[var(--text-primary)] italic uppercase tracking-tighter">Webhooks <span className="text-indigo-500">& API</span></h2>
+                            </div>
+
+                            <div className="space-y-6">
+                                <Input
+                                    label="URL DO WEBHOOK"
+                                    value={webhookUrl}
+                                    onChange={(e) => setWebhookUrl(e.target.value)}
+                                    placeholder="https://n8n.seusite.com/webhook/..."
+                                    className="font-mono text-xs"
+                                />
+
+                                <div className="space-y-3">
+                                    <label className="block text-xs font-black text-[var(--text-primary)] mb-2 opacity-70 uppercase tracking-widest">EVENTOS ATIVOS</label>
+
+                                    <button
+                                        onClick={() => toggleWebhookEvent('sale_generated')}
+                                        className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${webhookEvents.includes('sale_generated')
+                                            ? 'border-indigo-500 bg-indigo-500/5'
+                                            : 'border-[var(--border-color)] bg-[var(--bg-tertiary)] opacity-60'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${webhookEvents.includes('sale_generated') ? 'bg-indigo-500 text-white' : 'bg-[var(--bg-primary)] text-[var(--text-muted)]'}`}>
+                                                <div className="w-2 h-2 bg-current rounded-full" />
+                                            </div>
+                                            <span className="font-bold text-sm text-[var(--text-primary)]">VENDA GERADA (PENDENTE)</span>
+                                        </div>
+                                        {webhookEvents.includes('sale_generated') && <CheckCircle2 size={16} className="text-indigo-500" />}
+                                    </button>
+
+                                    <button
+                                        onClick={() => toggleWebhookEvent('sale_approved')}
+                                        className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${webhookEvents.includes('sale_approved')
+                                            ? 'border-indigo-500 bg-indigo-500/5'
+                                            : 'border-[var(--border-color)] bg-[var(--bg-tertiary)] opacity-60'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${webhookEvents.includes('sale_approved') ? 'bg-indigo-500 text-white' : 'bg-[var(--bg-primary)] text-[var(--text-muted)]'}`}>
+                                                <div className="w-2 h-2 bg-current rounded-full" />
+                                            </div>
+                                            <span className="font-bold text-sm text-[var(--text-primary)]">VENDA APROVADA</span>
+                                        </div>
+                                        {webhookEvents.includes('sale_approved') && <CheckCircle2 size={16} className="text-indigo-500" />}
+                                    </button>
+                                </div>
                             </div>
                         </Card>
                     </div>

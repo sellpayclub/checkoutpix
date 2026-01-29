@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS checkout_settings (
   cpf_enabled BOOLEAN DEFAULT FALSE, -- Missing column added
   order_bump_title VARCHAR(255) DEFAULT 'Aproveite essa oferta especial!', -- Missing column added
   order_bump_button_text VARCHAR(255) DEFAULT 'Adicionar oferta', -- Missing column added
+  webhook_url TEXT,
+  webhook_events JSONB DEFAULT '["sale_generated", "sale_approved"]',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -210,6 +212,14 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'order_bump_button_text') THEN
         ALTER TABLE checkout_settings ADD COLUMN order_bump_button_text VARCHAR(255) DEFAULT 'Adicionar oferta';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'webhook_url') THEN
+        ALTER TABLE checkout_settings ADD COLUMN webhook_url TEXT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'webhook_events') THEN
+        ALTER TABLE checkout_settings ADD COLUMN webhook_events JSONB DEFAULT '["sale_generated", "sale_approved"]';
     END IF;
 END $$;
 

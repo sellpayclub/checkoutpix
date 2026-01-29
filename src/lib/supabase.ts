@@ -18,7 +18,7 @@ export interface Product {
     updated_at: string;
     product_plans?: ProductPlan[];
     product_deliverables?: Deliverable[];
-    order_bump_ids?: string[]; // Computed from relation
+    order_bump_ids: string[]; // Computed from relation
 }
 
 export interface ProductPlan {
@@ -96,7 +96,33 @@ export interface CheckoutSettings {
     cpf_enabled: boolean;
     order_bump_title: string;
     order_bump_button_text: string;
+    webhook_url?: string;
+    webhook_events?: string[];
     updated_at: string;
+}
+
+// Helper to trigger webhook
+async function triggerWebhook(event: 'sale_generated' | 'sale_approved', payload: any) {
+    try {
+        const settings = await getCheckoutSettings();
+        if (!settings.webhook_url) return;
+
+        // Check if event is enabled (default to true if not specified)
+        const enabledEvents = settings.webhook_events || ['sale_generated', 'sale_approved'];
+        if (!enabledEvents.includes(event)) return;
+
+        await fetch(settings.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event,
+                timestamp: new Date().toISOString(),
+                data: payload
+            })
+        });
+    } catch (error) {
+        console.error('Error triggering webhook:', error);
+    }
 }
 
 // ============ Products ============
@@ -453,10 +479,10 @@ export async function getOrders(filters?: {
         query = query.eq('product_id', filters.productId);
     }
     if (filters?.startDate) {
-        query = query.gte('created_at', filters.startDate);
+        query = query.gte('created_at', `${filters.startDate}T00:00:00`);
     }
     if (filters?.endDate) {
-        query = query.lte('created_at', filters.endDate);
+        query = query.lte('created_at', `${filters.endDate}T23:59:59`);
     }
 
     const { data, error } = await query;
@@ -525,6 +551,10 @@ export async function createOrder(order: {
         console.error('Error creating order:', error);
         throw new Error(error.message);
     }
+
+    // Trigger Webhook (Fire and Forget)
+    triggerWebhook('sale_generated', data).catch(console.error);
+
     return data;
 }
 
@@ -540,6 +570,11 @@ export async function updateOrderStatus(correlationId: string, status: string, p
         .single();
 
     if (error) throw new Error(error.message);
+
+    if (status === 'APPROVED') {
+        triggerWebhook('sale_approved', data).catch(console.error);
+    }
+
     return data;
 }
 
@@ -611,6 +646,8 @@ export async function getCheckoutSettings(): Promise<CheckoutSettings> {
             cpf_enabled: false,
             order_bump_title: 'Aproveite essa oferta especial!',
             order_bump_button_text: 'Adicionar oferta',
+            webhook_url: undefined,
+            webhook_events: ['sale_generated', 'sale_approved'],
             updated_at: new Date().toISOString(),
         };
     }

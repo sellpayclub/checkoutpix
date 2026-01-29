@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, Download, Eye, ShoppingCart, X, User, Mail, Phone, Send, AlertTriangle } from 'lucide-react';
+import { Search, Filter, Download, Eye, ShoppingCart, X, User, Mail, Phone, Send, AlertTriangle, RefreshCw, Calendar } from 'lucide-react';
 import { Button, Card, Badge } from '../components/ui';
-import { getOrders, getProducts } from '../lib/supabase';
+import { getOrders, getProducts, updateOrderStatus } from '../lib/supabase';
 import { sendPixExpiredEmail, sendAbandonedCartEmail } from '../lib/resend';
-import { formatPrice } from '../lib/openpix';
+import { formatPrice, getChargeStatus } from '../lib/openpix';
 import { formatDateTime, getStatusLabel } from '../lib/utils';
-import type { Order, Product } from '../types';
+import type { Order, Product } from '../lib/supabase';
 
 interface OrderModalProps {
     order: Order | null;
@@ -199,11 +199,14 @@ export function Vendas() {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
 
     // Filters
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
     const [productFilter, setProductFilter] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     useEffect(() => {
         loadData();
@@ -217,6 +220,9 @@ export function Vendas() {
             ]);
             setOrders(ordersData as Order[] || []);
             setProducts(productsData as Product[] || []);
+
+            // Auto sync pending orders lightly (without blocking)
+            setTimeout(() => syncOrders(ordersData as Order[] || [], true), 1000);
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
@@ -230,12 +236,65 @@ export function Vendas() {
             const data = await getOrders({
                 status: statusFilter || undefined,
                 productId: productFilter || undefined,
+                startDate: startDate || undefined,
+                endDate: endDate || undefined,
             });
             setOrders(data as Order[] || []);
         } catch (error) {
             console.error('Error filtering orders:', error);
         } finally {
             setIsLoading(false);
+        }
+    }
+
+    async function syncOrders(currentOrders: Order[] = orders, silent = false) {
+        if (!silent) setIsSyncing(true);
+
+        const pendingOrders = currentOrders.filter(o => o.status === 'PENDING');
+        let updatedCount = 0;
+
+        try {
+            for (const order of pendingOrders) {
+                try {
+                    const statusData = await getChargeStatus(order.correlation_id);
+
+                    let newStatus = order.status;
+                    if (statusData.status === 'COMPLETED') newStatus = 'APPROVED';
+                    else if (statusData.status === 'EXPIRED') newStatus = 'EXPIRED';
+
+                    if (newStatus !== order.status) {
+                        // Update in DB
+                        await updateOrderStatus(order.correlation_id, newStatus, statusData.paidAt);
+                        updatedCount++;
+                    }
+                } catch (err) {
+                    console.error(`Failed to sync order ${order.correlation_id}`, err);
+                }
+            }
+
+            if (updatedCount > 0) {
+                // Reload data to reflect changes
+                if (!silent) await applyFilters(); // Re-fetch
+                else {
+                    // Silent update? Maybe better to just fetch
+                    const data = await getOrders({
+                        status: statusFilter || undefined,
+                        productId: productFilter || undefined,
+                        startDate: startDate || undefined,
+                        endDate: endDate || undefined,
+                    });
+                    setOrders(data);
+                }
+                if (!silent) alert(`${updatedCount} pedidos foram atualizados com sucesso!`);
+            } else if (!silent) {
+                alert('Todos os pedidos já estão atualizados.');
+            }
+
+        } catch (error) {
+            console.error('Error syncing orders:', error);
+            if (!silent) alert('Erro ao sincronizar pedidos.');
+        } finally {
+            if (!silent) setIsSyncing(false);
         }
     }
 
@@ -301,9 +360,19 @@ export function Vendas() {
                     </h1>
                     <p className="text-[var(--text-secondary)] mt-1 font-medium">Fluxo de transações em tempo real</p>
                 </div>
-                <Button variant="secondary" icon={<Download size={18} />} onClick={exportCSV} className="relative z-10">
-                    Exportar CSV
-                </Button>
+                <div className="flex items-center gap-3 relative z-10">
+                    <Button
+                        variant="secondary"
+                        isLoading={isSyncing}
+                        icon={<RefreshCw size={18} className={isSyncing ? "animate-spin" : ""} />}
+                        onClick={() => syncOrders()}
+                    >
+                        Sincronizar
+                    </Button>
+                    <Button variant="secondary" icon={<Download size={18} />} onClick={exportCSV}>
+                        Exportar CSV
+                    </Button>
+                </div>
                 <div className="absolute -top-10 -left-10 w-40 h-40 bg-[var(--accent-primary)] opacity-[0.03] blur-[100px] rounded-full" />
             </div>
 
@@ -333,43 +402,76 @@ export function Vendas() {
 
             {/* Filters */}
             <Card className="mb-6">
-                <div className="flex flex-wrap gap-4">
-                    <div className="flex-1 min-w-[200px] relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none z-10">
-                            <Search size={18} />
+                <div className="flex flex-col lg:flex-row gap-4">
+                    {/* Search & Selects */}
+                    <div className="flex flex-1 flex-wrap gap-4">
+                        <div className="flex-1 min-w-[200px] relative">
+                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none z-10">
+                                <Search size={18} />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Buscar cliente..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="input-premium pl-12"
+                            />
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Buscar cliente..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="input-premium pl-12"
-                        />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="input-premium w-auto min-w-[150px] cursor-pointer"
+                        >
+                            <option value="">Status</option>
+                            <option value="PENDING">Pendente</option>
+                            <option value="APPROVED">Aprovado</option>
+                            <option value="EXPIRED">Expirado</option>
+                            <option value="REFUNDED">Reembolsado</option>
+                        </select>
+                        <select
+                            value={productFilter}
+                            onChange={(e) => setProductFilter(e.target.value)}
+                            className="input-premium w-auto min-w-[150px] cursor-pointer"
+                        >
+                            <option value="">Produto</option>
+                            {products.map((product) => (
+                                <option key={product.id} value={product.id}>{product.name}</option>
+                            ))}
+                        </select>
                     </div>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="input-premium w-auto min-w-[150px] cursor-pointer"
-                    >
-                        <option value="">Status</option>
-                        <option value="PENDING">Pendente</option>
-                        <option value="APPROVED">Aprovado</option>
-                        <option value="EXPIRED">Expirado</option>
-                        <option value="REFUNDED">Reembolsado</option>
-                    </select>
-                    <select
-                        value={productFilter}
-                        onChange={(e) => setProductFilter(e.target.value)}
-                        className="input-premium w-auto min-w-[180px] cursor-pointer"
-                    >
-                        <option value="">Produto</option>
-                        {products.map((product) => (
-                            <option key={product.id} value={product.id}>{product.name}</option>
-                        ))}
-                    </select>
-                    <Button variant="primary" icon={<Filter size={18} />} onClick={applyFilters}>
-                        Filtrar
-                    </Button>
+
+                    {/* Dates & Action */}
+                    <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none">
+                                    <Calendar size={14} />
+                                </span>
+                                <input
+                                    type="date"
+                                    className="input-premium pl-9 py-2 text-xs w-[130px]"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                />
+                            </div>
+                            <span className="text-[var(--text-tertiary)] font-bold text-xs">ATÉ</span>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none">
+                                    <Calendar size={14} />
+                                </span>
+                                <input
+                                    type="date"
+                                    className="input-premium pl-9 py-2 text-xs w-[130px]"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <Button variant="primary" icon={<Filter size={18} />} onClick={applyFilters}>
+                            Filtrar
+                        </Button>
+                    </div>
                 </div>
             </Card>
 
