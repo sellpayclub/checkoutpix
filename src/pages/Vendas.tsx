@@ -3,7 +3,6 @@ import { Search, Filter, Download, Eye, ShoppingCart, RefreshCw, Calendar } from
 import { Button, Card, Badge } from '../components/ui';
 import { OrderModal } from '../components/dashboard';
 import { getOrders, getProducts, updateOrderStatus } from '../lib/supabase';
-import { sendPixExpiredEmail, sendAbandonedCartEmail } from '../lib/resend';
 import { formatPrice, getChargeStatus } from '../lib/openpix';
 import { formatDateTime, getStatusLabel } from '../lib/utils';
 import type { Order, Product } from '../lib/supabase';

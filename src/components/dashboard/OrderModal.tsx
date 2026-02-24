@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { X, User, Mail, Phone, ShoppingCart, AlertTriangle, Send } from 'lucide-react';
 import { Button, Badge } from '../ui';
-import { updateOrderStatus } from '../../lib/supabase';
 import { sendPixExpiredEmail, sendAbandonedCartEmail } from '../../lib/resend';
 import { formatPrice } from '../../lib/openpix';
 import { formatDateTime, getStatusLabel } from '../../lib/utils';
