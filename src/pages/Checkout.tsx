@@ -590,10 +590,11 @@ export function Checkout() {
                                                         <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{bump.description}</p>
                                                     )}
 
-                                                    <div className="mt-3 text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg inline-block transition-all"
+                                                    <div className="mt-3 text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded-xl inline-block transition-all shadow-sm hover:brightness-110 active:scale-95"
                                                         style={{
-                                                            backgroundColor: selectedBump?.id === bump.id ? settings.primary_color : `${settings.primary_color}15`,
-                                                            color: selectedBump?.id === bump.id ? '#ffffff' : settings.primary_color
+                                                            backgroundColor: settings.primary_color,
+                                                            color: '#ffffff',
+                                                            boxShadow: `0 4px 12px ${settings.primary_color}25`
                                                         }}>
                                                         {selectedBump?.id === bump.id ? 'ADICIONADO' : (bump.button_text || settings.order_bump_button_text).toUpperCase()}
                                                     </div>
