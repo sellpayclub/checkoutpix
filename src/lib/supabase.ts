@@ -385,15 +385,21 @@ export async function getOrderBumps(): Promise<OrderBump[]> {
     return data;
 }
 
-export async function getOrderBump(id: string): Promise<OrderBump | null> {
-    const { data, error } = await supabase
+export async function getOrderBump(id: string): Promise<OrderBump & { product_ids?: string[] } | null> {
+    const { data: bump, error } = await supabase
         .from('order_bumps')
-        .select('*')
+        .select(`
+            *,
+            product_order_bumps (product_id)
+        `)
         .eq('id', id)
         .single();
 
     if (error) return null;
-    return data;
+    return {
+        ...bump,
+        product_ids: bump.product_order_bumps?.map((pob: any) => pob.product_id) || []
+    };
 }
 
 export async function createOrderBump(bump: {

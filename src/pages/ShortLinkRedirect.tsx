@@ -13,7 +13,15 @@ export function ShortLinkRedirect() {
             getShortLink(slug)
                 .then(url => {
                     if (url) {
-                        window.location.href = url;
+                        // Preserve query parameters (UTMs, etc)
+                        const searchParams = window.location.search;
+                        if (searchParams) {
+                            const separator = url.includes('?') ? '&' : '?';
+                            const finalUrl = `${url}${separator}${searchParams.substring(1)}`;
+                            window.location.href = finalUrl;
+                        } else {
+                            window.location.href = url;
+                        }
                     } else {
                         setError(true);
                     }

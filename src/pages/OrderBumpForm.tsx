@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Palette, Upload, Trash2 } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui';
-import { getOrderBump, createOrderBump, updateOrderBump, getProducts, linkOrderBumpToProduct, uploadFile, getCheckoutSettings } from '../lib/supabase';
+import { supabase, getOrderBump, createOrderBump, updateOrderBump, getProducts, linkOrderBumpToProduct, uploadFile, getCheckoutSettings } from '../lib/supabase';
 import { parsePriceToCents } from '../lib/openpix';
 
 export function OrderBumpForm() {
@@ -54,6 +54,7 @@ export function OrderBumpForm() {
                     setIsActive(bump.is_active);
                     setImageUrl(bump.image_url);
                     setImagePreview(bump.image_url);
+                    setSelectedProductIds(bump.product_ids || []);
                 }
             } else if (settingsData) {
                 setBoxColor(settingsData.primary_color);
@@ -97,6 +98,12 @@ export function OrderBumpForm() {
 
             if (isEditing && id) {
                 await updateOrderBump(id, bumpData);
+
+                // Update links: Delete existing and add new
+                await supabase.from('product_order_bumps').delete().eq('order_bump_id', id);
+                for (const productId of selectedProductIds) {
+                    await linkOrderBumpToProduct(productId, id);
+                }
             } else {
                 const newBump = await createOrderBump(bumpData);
                 // Link to selected products

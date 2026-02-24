@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Check, Download, ExternalLink, Facebook } from 'lucide-react';
+import { Check, Download, ExternalLink, Facebook as FbIcon } from 'lucide-react';
 import { Button } from '../components/ui';
 import { getOrderByCorrelationId, getPixels } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
 import type { Order } from '../types';
+
+import { getTrackingParameters } from '../lib/utmify';
 
 declare global {
     interface Window {
@@ -85,6 +87,30 @@ export function Obrigado() {
         loadOrder();
     }, [correlationId]);
 
+    // Track Purchase as soon as order and pixels are ready
+    useEffect(() => {
+        if (order && pixels.length > 0 && (window as any).fbq) {
+            const correlationId = order.correlation_id;
+            const storageKey = `tracked_purchase_${correlationId}`;
+
+            // Deduplicate: Don't fire if already fired (either here or on checkout page)
+            if (!localStorage.getItem(storageKey)) {
+                firePixelEvent('Purchase', {
+                    ...getTrackingParameters(),
+                    value: order.amount / 100,
+                    currency: 'BRL',
+                    content_name: order.product?.name,
+                    content_type: 'product',
+                    content_ids: [order.product_id]
+                });
+                localStorage.setItem(storageKey, 'true');
+                console.log('[Pixel] Purchase tracking fired in Thank You page');
+            } else {
+                console.log('[Pixel] Purchase already tracked for:', correlationId);
+            }
+        }
+    }, [order, pixels]);
+
     async function loadOrder() {
         if (!correlationId) {
             navigate('/');
@@ -100,23 +126,21 @@ export function Obrigado() {
             }
 
             setOrder(orderData as Order);
+            setIsLoading(false);
 
-            // Track Purchase
-            setTimeout(() => {
-                firePixelEvent('Purchase', {
-                    value: orderData.amount / 100,
-                    currency: 'BRL',
-                    content_name: orderData.product?.name
-                });
-            }, 500); // Reduced to 500ms to ensure it fires before redirect
-
-            // Check for redirect
+            // Handle redirect
             const deliverable = orderData.product?.product_deliverables?.[0];
             if (deliverable?.type === 'redirect' && deliverable.redirect_url) {
-                // Show page briefly then redirect - increased to 3 seconds to allow pixels to fire
                 setTimeout(() => {
-                    window.location.href = deliverable.redirect_url!;
-                }, 3000);
+                    // Append UTMs to redirect URL
+                    const tracking = getTrackingParameters();
+                    const url = new URL(deliverable.redirect_url!);
+                    Object.entries(tracking).forEach(([key, value]) => {
+                        if (value) url.searchParams.set(key, value);
+                    });
+
+                    window.location.href = url.toString();
+                }, 4000); // 4s delay to allow pixel to fire
             }
         } catch (error) {
             console.error('Error loading order:', error);
@@ -168,7 +192,7 @@ export function Obrigado() {
                         {resent ? (
                             <><Check size={12} /> Evento Enviado!</>
                         ) : (
-                            <><Facebook size={12} /> Reenviar Pixel de Compra</>
+                            <><FbIcon size={12} /> Reenviar Pixel de Compra</>
                         )}
                     </button>
                     {!resent && (

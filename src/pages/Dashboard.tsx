@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, ShoppingCart, TrendingUp, Package, ArrowUpRight, Eye, Zap, Clock, Percent, Target, Star, Wallet, Repeat, Users, BarChart3, Globe } from 'lucide-react';
-import { StatCard } from '../components/dashboard';
+import { StatCard, OrderModal } from '../components/dashboard';
 import { Card, Badge, Button } from '../components/ui';
 import { getDashboardStats, getOrders, getProducts } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
@@ -51,6 +51,7 @@ export function Dashboard() {
     const [recentOrders, setRecentOrders] = useState<Order[]>([]);
     const [topProducts, setTopProducts] = useState<ProductSales[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null, label: string }>({
         start: new Date(new Date().setHours(0, 0, 0, 0)), // Today start
         end: new Date(new Date().setHours(23, 59, 59, 999)), // Today end
@@ -205,6 +206,9 @@ export function Dashboard() {
 
     return (
         <div className="p-8 gradient-mesh min-h-screen">
+            {/* Modal */}
+            <OrderModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />
+
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 relative gap-4">
                 <div className="relative z-10">
@@ -439,8 +443,12 @@ export function Dashboard() {
                                                 <p className="text-sm text-[var(--text-secondary)]">{formatDateTime(order.created_at)}</p>
                                             </td>
                                             <td>
-                                                <button className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors">
-                                                    <Eye size={18} className="text-[var(--text-tertiary)]" />
+                                                <button
+                                                    onClick={() => setSelectedOrder(order)}
+                                                    className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors"
+                                                    title="Ver detalhes"
+                                                >
+                                                    <Eye size={18} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]" />
                                                 </button>
                                             </td>
                                         </tr>

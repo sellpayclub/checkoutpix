@@ -28,6 +28,10 @@ export interface UtmifyTrackingParameters {
     utm_medium: string | null;
     utm_content: string | null;
     utm_term: string | null;
+    fbclid: string | null;
+    gclid: string | null;
+    ttclid: string | null;
+    [key: string]: string | null; // Allow any other parameters
 }
 
 export interface UtmifyCommission {
@@ -78,40 +82,57 @@ export function getTrackingParameters(): UtmifyTrackingParameters {
     const params = new URLSearchParams(window.location.search);
     const storageKey = 'utmify_tracking_params';
 
-    const currentParams: UtmifyTrackingParameters = {
-        src: params.get('src'),
-        sck: params.get('sck'),
-        utm_source: params.get('utm_source'),
-        utm_campaign: params.get('utm_campaign'),
-        utm_medium: params.get('utm_medium'),
-        utm_content: params.get('utm_content'),
-        utm_term: params.get('utm_term'),
-    };
+    // List of parameters we specifically want to track
+    const trackedKeys = [
+        'src', 'sck', 'utm_source', 'utm_campaign', 'utm_medium', 'utm_content', 'utm_term',
+        'fbclid', 'gclid', 'ttclid', 'utm_id', 'utm_placement', 'utm_creative'
+    ];
 
-    // Check if any current params exist
-    const hasParams = Object.values(currentParams).some(val => val !== null);
+    const currentParams: any = {};
 
-    if (hasParams) {
-        // Save to localStorage
-        try {
-            localStorage.setItem(storageKey, JSON.stringify(currentParams));
-        } catch (e) {
-            console.error('Error saving UTMs to localStorage', e);
+    // 1. Try to get from URL
+    trackedKeys.forEach(key => {
+        const value = params.get(key);
+        if (value) currentParams[key] = value;
+    });
+
+    // Capture ANY other parameters that start with utm_
+    params.forEach((value, key) => {
+        if (key.startsWith('utm_') && !currentParams[key]) {
+            currentParams[key] = value;
         }
-        return currentParams;
+    });
+
+    // 2. Check if we have any current params
+    const hasCurrentParams = Object.keys(currentParams).length > 0;
+
+    if (hasCurrentParams) {
+        // Merge with existing stored params to not lose them
+        let merged = { ...currentParams };
+        try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                const storedParams = JSON.parse(stored);
+                merged = { ...storedParams, ...currentParams };
+            }
+            localStorage.setItem(storageKey, JSON.stringify(merged));
+        } catch (e) {
+            console.error('Error saving UTMs', e);
+        }
+        return merged;
     }
 
-    // Try to load from localStorage
+    // 3. Try to load from localStorage if URL is empty
     try {
         const stored = localStorage.getItem(storageKey);
         if (stored) {
             return JSON.parse(stored);
         }
     } catch (e) {
-        console.error('Error loading UTMs from localStorage', e);
+        console.error('Error loading UTMs', e);
     }
 
-    return currentParams;
+    return currentParams as UtmifyTrackingParameters;
 }
 
 export function getCurrentDateTime() {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles, Facebook } from 'lucide-react';
+import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles, Facebook as FbIcon } from 'lucide-react';
 import { Button } from '../components/ui';
 import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderStatus, getOrderBumps, recordCheckoutVisit } from '../lib/supabase';
 import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, cleanPhone } from '../lib/openpix';
@@ -94,7 +94,9 @@ export function Checkout() {
         }
     }, [productId, planId]);
 
-    // Initializate pixels when they are loaded
+    const trackedRef = useRef({ pageView: false, initiateCheckout: false });
+
+    // Initialize pixels when they are loaded
     useEffect(() => {
         if (pixels.length === 0) return;
 
@@ -116,9 +118,27 @@ export function Checkout() {
             (window as any).fbq('init', id);
         });
 
-        firePixelEvent('PageView');
-        firePixelEvent('InitiateCheckout');
-    }, [pixels]);
+        // Track initial events
+        const tracking = getTrackingParameters();
+
+        if (!trackedRef.current.pageView) {
+            firePixelEvent('PageView', tracking);
+            trackedRef.current.pageView = true;
+        }
+
+        // Only fire InitiateCheckout once we have product info
+        if (!trackedRef.current.initiateCheckout && product) {
+            firePixelEvent('InitiateCheckout', {
+                ...tracking,
+                content_name: product.name,
+                content_type: 'product',
+                content_ids: [product.id],
+                value: product.plan.price / 100,
+                currency: 'BRL'
+            });
+            trackedRef.current.initiateCheckout = true;
+        }
+    }, [pixels, product]);
 
     // Timer countdown
     useEffect(() => {
@@ -152,70 +172,80 @@ export function Checkout() {
                 if (status.status === 'COMPLETED') {
                     setIsPaid(true);
                     if (pollingRef.current) clearInterval(pollingRef.current);
-                    await updateOrderStatus(pixData.correlationId, 'APPROVED', status.paidAt);
 
-                    // Notify Utmify (Paid)
                     const currentProduct = productRef.current;
                     const currentForm = formRef.current;
                     const currentBump = selectedBumpRef.current;
                     const total = calculateTotalFromRefs();
+                    const correlationId = pixData.correlationId;
 
+                    // Fire Purchase event immediately to avoid data loss
                     if (currentProduct) {
-                        firePixelEvent('Purchase', {
-                            value: total,
-                            currency: 'BRL',
-                            content_name: currentProduct.name
-                        });
-
-                        await sendToUtmify({
-                            orderId: pixData.correlationId,
-                            platform: 'SellPay',
-                            paymentMethod: 'pix',
-                            status: 'paid',
-                            createdAt: orderCreatedAt.current,
-                            approvedDate: getCurrentDateTime(),
-                            refundedAt: null,
-                            customer: {
-                                name: currentForm.name,
-                                email: currentForm.email,
-                                phone: cleanPhone(currentForm.phone),
-                                document: currentForm.cpf || null,
-                            },
-                            products: [
-                                {
-                                    id: currentProduct.id,
-                                    name: currentProduct.name,
-                                    planId: planId || null,
-                                    planName: currentProduct.plan.name,
-                                    quantity: 1,
-                                    priceInCents: currentProduct.plan.price
-                                },
-                                ...(currentBump ? [{
-                                    id: currentBump.id,
-                                    name: currentBump.name,
-                                    planId: null,
-                                    planName: null,
-                                    quantity: 1,
-                                    priceInCents: currentBump.price
-                                }] : [])
-                            ],
-                            trackingParameters: trackingParams,
-                            commission: {
-                                totalPriceInCents: total,
-                                gatewayFeeInCents: Math.round(total * 0.05),
-                                userCommissionInCents: Math.round(total * 0.95)
-                            }
-                        });
+                        const storageKey = `tracked_purchase_${correlationId}`;
+                        if (!localStorage.getItem(storageKey)) {
+                            firePixelEvent('Purchase', {
+                                ...getTrackingParameters(),
+                                value: total / 100,
+                                currency: 'BRL',
+                                content_name: currentProduct.name,
+                                content_type: 'product',
+                                content_ids: [currentProduct.id]
+                            });
+                            localStorage.setItem(storageKey, 'true');
+                            console.log('[Pixel] Purchase tracking fired');
+                        }
                     }
 
-                    // Send purchase approved email (use refs for current values)
+                    await updateOrderStatus(correlationId, 'APPROVED', status.paidAt);
+
+                    await sendToUtmify({
+                        orderId: correlationId,
+                        platform: 'SellPay',
+                        paymentMethod: 'pix',
+                        status: 'paid',
+                        createdAt: orderCreatedAt.current,
+                        approvedDate: getCurrentDateTime(),
+                        refundedAt: null,
+                        customer: {
+                            name: currentForm.name,
+                            email: currentForm.email,
+                            phone: cleanPhone(currentForm.phone),
+                            document: currentForm.cpf || null,
+                        },
+                        products: [
+                            {
+                                id: currentProduct?.id || '',
+                                name: currentProduct?.name || '',
+                                planId: planId || null,
+                                planName: currentProduct?.plan.name || '',
+                                quantity: 1,
+                                priceInCents: currentProduct?.plan.price || 0
+                            },
+                            ...(currentBump ? [{
+                                id: currentBump.id,
+                                name: currentBump.name,
+                                planId: null,
+                                planName: null,
+                                quantity: 1,
+                                priceInCents: currentBump.price
+                            }] : [])
+                        ],
+                        trackingParameters: trackingParams,
+                        commission: {
+                            totalPriceInCents: total,
+                            gatewayFeeInCents: Math.round(total * 0.05),
+                            userCommissionInCents: Math.round(total * 0.95)
+                        }
+                    });
+
+                    // Send purchase approved email
                     if (currentProduct) {
-                        const deliverable = currentProduct.deliverables?.[0];
+                        const deliverable = (currentProduct as any).deliverables?.[0];
                         await sendPurchaseApprovedEmail({
                             customerEmail: currentForm.email,
                             customerName: currentForm.name,
                             productName: currentProduct.name,
-                            amount: calculateTotalFromRefs(),
+                            amount: total,
                             accessUrl: deliverable?.redirect_url || undefined,
                             downloadUrl: deliverable?.file_url || undefined,
                         });
@@ -223,14 +253,14 @@ export function Checkout() {
 
                     setTimeout(() => {
                         if (currentProduct) {
-                            const deliverable = currentProduct.deliverables?.[0];
+                            const deliverable = (currentProduct as any).deliverables?.[0];
                             if (deliverable?.type === 'redirect' && deliverable.redirect_url) {
                                 window.location.href = deliverable.redirect_url;
                                 return;
                             }
                         }
-                        navigate(`/obrigado/${pixData.correlationId}`);
-                    }, 3000); // Increased to 3s to ensure pixel and Utmify events fire
+                        navigate(`/obrigado/${correlationId}`);
+                    }, 3000);
                 }
             } catch (error) {
                 console.log('Verificando pagamento...');
@@ -240,7 +270,7 @@ export function Checkout() {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
-    }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate]);
+    }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate, trackingParams, planId]);
 
     async function loadData() {
         if (!productId || !planId) {
@@ -283,9 +313,15 @@ export function Checkout() {
 
             // Load active order bumps linked to this product
             const productBumpIds = productData.order_bump_ids || [];
-            const activeBumps = bumpsData?.filter((b: OrderBumpData & { is_active: boolean }) =>
-                b.is_active && productBumpIds.includes(b.id)
-            ) || [];
+            console.log('Product Bump IDs:', productBumpIds);
+
+            const activeBumps = (bumpsData || []).filter((b: any) => {
+                const isActive = b.is_active === true;
+                const isLinked = productBumpIds.includes(b.id);
+                return isActive && isLinked;
+            });
+
+            console.log('Active Bumps found:', activeBumps.length);
             setOrderBumps(activeBumps);
 
             if (settingsData) {
@@ -372,6 +408,7 @@ export function Checkout() {
         try {
             const correlationId = generateCorrelationId();
             const total = calculateTotal();
+            const trackingParams = getTrackingParameters();
 
             // Create PIX charge
             const chargeResponse = await createPixCharge({
@@ -510,7 +547,7 @@ export function Checkout() {
                         {resent ? (
                             <><Check size={14} /> Evento Enviado!</>
                         ) : (
-                            <><Facebook size={14} /> Reenviar Pixel de Compra</>
+                            <><FbIcon size={14} /> Reenviar Pixel de Compra</>
                         )}
                     </button>
 
