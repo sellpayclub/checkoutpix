@@ -82,13 +82,13 @@ export function OrderBumpForm() {
             const bumpData = {
                 name,
                 title,
-                description: description || undefined,
+                description: description || null,
                 price: parsePriceToCents(price),
-                button_text: buttonText || undefined,
+                button_text: buttonText || null,
                 box_color: boxColor,
                 text_color: textColor,
                 is_active: isActive,
-                image_url: uploadedImageUrl || undefined,
+                image_url: uploadedImageUrl || null,
             };
 
             if (isEditing && id) {
@@ -130,7 +130,7 @@ export function OrderBumpForm() {
                     <ArrowLeft size={20} className="text-[var(--text-secondary)]" />
                 </button>
                 <div>
-                    <h1 className="text-2xl font-bold text-sellpay-text">
+                    <h1 className="text-2xl font-bold text-[var(--text-primary)]">
                         {isEditing ? 'Editar Order Bump' : 'Novo Order Bump'}
                     </h1>
                     <p className="text-gray-500 mt-1">
@@ -142,7 +142,7 @@ export function OrderBumpForm() {
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Info */}
                 <Card>
-                    <h2 className="text-lg font-semibold text-sellpay-text mb-4">Informações</h2>
+                    <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Informações</h2>
 
                     <div className="space-y-4">
                         <Input
@@ -170,7 +170,7 @@ export function OrderBumpForm() {
                         />
 
                         <div>
-                            <label className="block text-sm font-medium text-sellpay-text mb-1.5">
+                            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
                                 Descrição (opcional)
                             </label>
                             <textarea
@@ -178,7 +178,7 @@ export function OrderBumpForm() {
                                 onChange={(e) => setDescription(e.target.value)}
                                 placeholder="Descreva brevemente a oferta..."
                                 rows={2}
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sellpay-text placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-sellpay-primary/20 focus:border-sellpay-primary resize-none"
+                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[var(--text-primary)] placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/20 focus:border-[var(--accent-primary)] resize-none"
                             />
                         </div>
 
@@ -192,7 +192,7 @@ export function OrderBumpForm() {
 
                         {/* Image Upload */}
                         <div>
-                            <label className="block text-sm font-medium text-sellpay-text mb-2">
+                            <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                                 Imagem do Produto (Opcional)
                             </label>
                             <div className="flex items-center justify-center w-full">
@@ -246,9 +246,9 @@ export function OrderBumpForm() {
                                 id="isActive"
                                 checked={isActive}
                                 onChange={(e) => setIsActive(e.target.checked)}
-                                className="w-4 h-4 text-sellpay-primary rounded border-gray-300 focus:ring-sellpay-primary"
+                                className="w-4 h-4 text-[var(--accent-primary)] rounded border-gray-300 focus:ring-[var(--accent-primary)]"
                             />
-                            <label htmlFor="isActive" className="text-sm font-medium text-sellpay-text">
+                            <label htmlFor="isActive" className="text-sm font-medium text-[var(--text-primary)]">
                                 Ativo
                             </label>
                         </div>
@@ -259,12 +259,12 @@ export function OrderBumpForm() {
                 <Card>
                     <div className="flex items-center gap-2 mb-4">
                         <Palette size={20} className="text-gray-400" />
-                        <h2 className="text-lg font-semibold text-sellpay-text">Aparência</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Aparência</h2>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div>
-                            <label className="block text-sm font-medium text-sellpay-text mb-1.5">
+                            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
                                 Cor do fundo
                             </label>
                             <div className="flex items-center gap-2">
@@ -282,7 +282,7 @@ export function OrderBumpForm() {
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-sellpay-text mb-1.5">
+                            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
                                 Cor do texto
                             </label>
                             <div className="flex items-center gap-2">
@@ -303,7 +303,7 @@ export function OrderBumpForm() {
 
                     {/* Preview */}
                     <div>
-                        <label className="block text-sm font-medium text-sellpay-text mb-2">
+                        <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                             Prévia
                         </label>
                         <div
@@ -323,7 +323,7 @@ export function OrderBumpForm() {
                 {/* Associated Products */}
                 {!isEditing && products.length > 0 && (
                     <Card>
-                        <h2 className="text-lg font-semibold text-sellpay-text mb-4">Exibir em quais produtos?</h2>
+                        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Exibir em quais produtos?</h2>
                         <p className="text-sm text-gray-500 mb-4">
                             Selecione os checkouts onde este order bump deve aparecer
                         </p>
@@ -333,7 +333,7 @@ export function OrderBumpForm() {
                                 <label
                                     key={product.id}
                                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedProductIds.includes(product.id)
-                                        ? 'border-sellpay-primary bg-sellpay-primary/5'
+                                        ? 'border-[var(--accent-primary)] bg-[var(--accent-primary)]/5'
                                         : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
@@ -347,9 +347,9 @@ export function OrderBumpForm() {
                                                 setSelectedProductIds(selectedProductIds.filter(id => id !== product.id));
                                             }
                                         }}
-                                        className="w-4 h-4 text-sellpay-primary rounded border-gray-300 focus:ring-sellpay-primary"
+                                        className="w-4 h-4 text-[var(--accent-primary)] rounded border-gray-300 focus:ring-[var(--accent-primary)]"
                                     />
-                                    <span className="font-medium text-sellpay-text">{product.name}</span>
+                                    <span className="font-medium text-[var(--text-primary)]">{product.name}</span>
                                 </label>
                             ))}
                         </div>

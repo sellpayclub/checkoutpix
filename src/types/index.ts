@@ -45,7 +45,7 @@ export interface OrderBump {
     image_url: string | null;
     box_color: string;
     text_color: string;
-    button_text?: string;
+    button_text?: string | null;
     is_active: boolean;
     created_at: string;
 }

@@ -48,7 +48,7 @@ export interface OrderBump {
     image_url: string | null;
     box_color: string;
     text_color: string;
-    button_text?: string;
+    button_text?: string | null;
     is_active: boolean;
     created_at: string;
 }
@@ -399,12 +399,12 @@ export async function getOrderBump(id: string): Promise<OrderBump | null> {
 export async function createOrderBump(bump: {
     name: string;
     title: string;
-    description?: string;
+    description?: string | null;
     price: number;
-    image_url?: string;
+    image_url?: string | null;
     box_color?: string;
     text_color?: string;
-    button_text?: string;
+    button_text?: string | null;
     is_active?: boolean;
 }): Promise<OrderBump> {
     const { data, error } = await supabase

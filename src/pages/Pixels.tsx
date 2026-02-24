@@ -106,13 +106,13 @@ export function Pixels() {
         <div className="p-8 max-w-4xl">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-sellpay-text">Facebook Pixels</h1>
+                <h1 className="text-2xl font-bold text-[var(--text-primary)]">Facebook Pixels</h1>
                 <p className="text-gray-500 mt-1">Gerencie seus pixels para rastreamento de conversões</p>
             </div>
 
             {/* Add Pixel */}
             <Card className="mb-6">
-                <h2 className="text-lg font-semibold text-sellpay-text mb-4">Adicionar Pixel</h2>
+                <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Adicionar Pixel</h2>
 
                 <div className="flex flex-wrap gap-4">
                     <div className="flex-1 min-w-[200px]">
@@ -167,7 +167,7 @@ export function Pixels() {
                                         <Facebook size={20} className={pixel.is_active ? 'text-blue-600' : 'text-gray-400'} />
                                     </div>
                                     <div>
-                                        <h3 className="font-semibold text-sellpay-text">
+                                        <h3 className="font-semibold text-[var(--text-primary)]">
                                             {pixel.name || `Pixel ${pixel.pixel_id.slice(-4)}`}
                                         </h3>
                                         <p className="text-sm text-gray-500 font-mono">{pixel.pixel_id}</p>
@@ -179,7 +179,7 @@ export function Pixels() {
                                     </Badge>
                                     <button
                                         onClick={() => handleToggleActive(pixel)}
-                                        className={`relative w-12 h-6 rounded-full transition-colors ${pixel.is_active ? 'bg-sellpay-primary' : 'bg-gray-200'
+                                        className={`relative w-12 h-6 rounded-full transition-colors ${pixel.is_active ? 'bg-[var(--accent-primary)]' : 'bg-gray-200'
                                             }`}
                                     >
                                         <span
@@ -207,7 +207,7 @@ export function Pixels() {
                                                 key={event}
                                                 onClick={() => handleToggleEvent(pixel, event)}
                                                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${isEnabled
-                                                    ? 'bg-sellpay-primary/10 text-sellpay-primary border border-sellpay-primary/20'
+                                                    ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/20'
                                                     : 'bg-gray-100 text-gray-500 border border-gray-200 hover:border-gray-300'
                                                     }`}
                                             >

@@ -684,3 +684,27 @@ body {
   background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
   opacity: 0.3;
 }
+
+/* Futuristic border glow */
+.futuristic-border {
+  position: relative;
+}
+
+.futuristic-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, var(--accent-primary), transparent 60%, var(--accent-primary));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Glow text effect */
+.glow-text {
+  text-shadow: 0 0 20px var(--accent-glow);
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles } from 'lucide-react';
 import { Button } from '../components/ui';
@@ -20,7 +20,7 @@ interface OrderBumpData {
     image_url: string | null;
     box_color: string;
     text_color: string;
-    button_text?: string;
+    button_text?: string | null;
 }
 
 export function Checkout() {
@@ -61,6 +61,14 @@ export function Checkout() {
     const [errors, setErrors] = useState<Partial<CheckoutFormData>>({});
     const [selectedBump, setSelectedBump] = useState<OrderBumpData | null>(null);
 
+    // Refs to avoid stale closures in polling interval
+    const productRef = useRef(product);
+    const formRef = useRef(form);
+    const selectedBumpRef = useRef(selectedBump);
+    productRef.current = product;
+    formRef.current = form;
+    selectedBumpRef.current = selectedBump;
+
     // Timer
     const [timeLeft, setTimeLeft] = useState(600);
 
@@ -94,6 +102,17 @@ export function Checkout() {
         return () => clearInterval(interval);
     }, [settings.timer_enabled, timeLeft]);
 
+    // Calculate total using refs for stable access
+    const calculateTotalFromRefs = useCallback((): number => {
+        const currentProduct = productRef.current;
+        if (!currentProduct) return 0;
+        let total = currentProduct.plan.price;
+        if (selectedBumpRef.current) {
+            total += selectedBumpRef.current.price;
+        }
+        return total;
+    }, []);
+
     // Poll for payment status
     useEffect(() => {
         if (!pixData?.correlationId || isPaid) return;
@@ -105,16 +124,18 @@ export function Checkout() {
                     setIsPaid(true);
                     if (pollingRef.current) clearInterval(pollingRef.current);
                     await updateOrderStatus(pixData.correlationId, 'APPROVED', status.paidAt);
-                    firePixelEvent('Purchase', { value: calculateTotal() / 100, currency: 'BRL' });
+                    firePixelEvent('Purchase', { value: calculateTotalFromRefs() / 100, currency: 'BRL' });
 
-                    // Send purchase approved email
-                    if (product) {
-                        const deliverable = product.deliverables?.[0];
+                    // Send purchase approved email (use refs for current values)
+                    const currentProduct = productRef.current;
+                    const currentForm = formRef.current;
+                    if (currentProduct) {
+                        const deliverable = currentProduct.deliverables?.[0];
                         await sendPurchaseApprovedEmail({
-                            customerEmail: form.email,
-                            customerName: form.name,
-                            productName: product.name,
-                            amount: calculateTotal(),
+                            customerEmail: currentForm.email,
+                            customerName: currentForm.name,
+                            productName: currentProduct.name,
+                            amount: calculateTotalFromRefs(),
                             accessUrl: deliverable?.redirect_url || undefined,
                             downloadUrl: deliverable?.file_url || undefined,
                         });
@@ -132,7 +153,7 @@ export function Checkout() {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
-    }, [pixData?.correlationId, isPaid]);
+    }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate]);
 
     async function loadData() {
         if (!productId || !planId) {
