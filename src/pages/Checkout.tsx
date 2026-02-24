@@ -60,7 +60,7 @@ export function Checkout() {
     // Form state
     const [form, setForm] = useState<CheckoutFormData>({ name: '', email: '', phone: '', cpf: '' });
     const [errors, setErrors] = useState<Partial<CheckoutFormData>>({});
-    const [selectedBump, setSelectedBump] = useState<OrderBumpData | null>(null);
+    const [selectedBumps, setSelectedBumps] = useState<OrderBumpData[]>([]);
     const [trackingParams] = useState(getTrackingParameters());
     const [userIP, setUserIP] = useState<string | undefined>();
     const orderCreatedAt = useRef(getCurrentDateTime());
@@ -68,10 +68,10 @@ export function Checkout() {
     // Refs to avoid stale closures in polling interval
     const productRef = useRef(product);
     const formRef = useRef(form);
-    const selectedBumpRef = useRef(selectedBump);
+    const selectedBumpsRef = useRef(selectedBumps);
     productRef.current = product;
     formRef.current = form;
-    selectedBumpRef.current = selectedBump;
+    selectedBumpsRef.current = selectedBumps;
 
     // Timer
     const [timeLeft, setTimeLeft] = useState(600);
@@ -159,8 +159,10 @@ export function Checkout() {
         const currentProduct = productRef.current;
         if (!currentProduct) return 0;
         let total = currentProduct.plan.price;
-        if (selectedBumpRef.current) {
-            total += selectedBumpRef.current.price;
+        if (selectedBumpsRef.current.length > 0) {
+            selectedBumpsRef.current.forEach(bump => {
+                total += bump.price;
+            });
         }
         return total;
     }, []);
@@ -178,7 +180,7 @@ export function Checkout() {
 
                     const currentProduct = productRef.current;
                     const currentForm = formRef.current;
-                    const currentBump = selectedBumpRef.current;
+                    const currentBumps = selectedBumpsRef.current;
                     const total = calculateTotalFromRefs();
                     const correlationId = pixData.correlationId;
 
@@ -204,9 +206,9 @@ export function Checkout() {
                                 content_type: 'product',
                                 content_ids: [
                                     currentProduct.id,
-                                    ...(currentBump ? [currentBump.id] : [])
+                                    ...currentBumps.map(b => b.id)
                                 ],
-                                num_items: 1 + (currentBump ? 1 : 0)
+                                num_items: 1 + currentBumps.length
                             });
                             localStorage.setItem(storageKey, 'true');
                             console.log('[Pixel] Purchase tracking fired with Advanced Matching');
@@ -239,14 +241,14 @@ export function Checkout() {
                                 quantity: 1,
                                 priceInCents: currentProduct?.plan.price || 0
                             },
-                            ...(currentBump ? [{
-                                id: currentBump.id,
-                                name: currentBump.name,
+                            ...currentBumps.map(bump => ({
+                                id: bump.id,
+                                name: bump.name,
                                 planId: null,
                                 planName: null,
                                 quantity: 1,
-                                priceInCents: currentBump.price
-                            }] : [])
+                                priceInCents: bump.price
+                            }))
                         ],
                         trackingParameters: trackingParams,
                         commission: {
@@ -392,9 +394,9 @@ export function Checkout() {
     function calculateTotal(): number {
         if (!product) return 0;
         let total = product.plan.price;
-        if (selectedBump) {
-            total += selectedBump.price;
-        }
+        selectedBumps.forEach(bump => {
+            total += bump.price;
+        });
         return total;
     }
 
@@ -461,7 +463,7 @@ export function Checkout() {
                 pix_qr_code: chargeResponse.charge.qrCodeImage,
                 pix_copy_paste: chargeResponse.charge.brCode,
                 pix_charge_id: chargeResponse.charge.globalID,
-                order_bump_id: selectedBump?.id || undefined,
+                order_bump_id: selectedBumps.length > 0 ? selectedBumps[0].id : undefined,
             });
 
             // Send PIX generated email
@@ -504,14 +506,14 @@ export function Checkout() {
                         quantity: 1,
                         priceInCents: product.plan.price
                     },
-                    ...(selectedBump ? [{
-                        id: selectedBump.id,
-                        name: selectedBump.name,
+                    ...selectedBumps.map(bump => ({
+                        id: bump.id,
+                        name: bump.name,
                         planId: null,
                         planName: null,
                         quantity: 1,
-                        priceInCents: selectedBump.price
-                    }] : [])
+                        priceInCents: bump.price
+                    }))
                 ],
                 trackingParameters: trackingParams,
                 commission: {
@@ -748,12 +750,12 @@ export function Checkout() {
                                     {orderBumps.map((bump) => (
                                         <div
                                             key={bump.id}
-                                            onClick={() => setSelectedBump(selectedBump?.id === bump.id ? null : bump)}
-                                            className={`relative p-5 rounded-3xl border-2 cursor-pointer transition-all ${selectedBump?.id === bump.id
+                                            onClick={() => setSelectedBumps(prev => prev.some(b => b.id === bump.id) ? prev.filter(b => b.id !== bump.id) : [...prev, bump])}
+                                            className={`relative p-5 rounded-3xl border-2 cursor-pointer transition-all ${selectedBumps.some(b => b.id === bump.id)
                                                 ? 'border-solid shadow-md'
                                                 : 'border-dashed border-gray-200 hover:border-gray-300'
                                                 }`}
-                                            style={selectedBump?.id === bump.id ? {
+                                            style={selectedBumps.some(b => b.id === bump.id) ? {
                                                 borderColor: settings.primary_color,
                                                 backgroundColor: `${settings.primary_color}05`
                                             } : undefined}
@@ -761,13 +763,13 @@ export function Checkout() {
                                             <div className="space-y-4">
                                                 {/* Header with Checkbox, Title and Price */}
                                                 <div className="flex items-start gap-3">
-                                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${selectedBump?.id === bump.id
+                                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${selectedBumps.some(b => b.id === bump.id)
                                                         ? 'bg-emerald-500 border-emerald-500'
                                                         : 'border-gray-300'
                                                         }`}
-                                                        style={selectedBump?.id === bump.id ? { backgroundColor: settings.primary_color, borderColor: settings.primary_color } : undefined}
+                                                        style={selectedBumps.some(b => b.id === bump.id) ? { backgroundColor: settings.primary_color, borderColor: settings.primary_color } : undefined}
                                                     >
-                                                        {selectedBump?.id === bump.id && (
+                                                        {selectedBumps.some(b => b.id === bump.id) && (
                                                             <Check size={14} className="text-white" />
                                                         )}
                                                     </div>
@@ -802,7 +804,7 @@ export function Checkout() {
                                                             color: '#ffffff',
                                                             boxShadow: `0 8px 20px ${settings.primary_color}30`
                                                         }}>
-                                                        {selectedBump?.id === bump.id ? '✓ ADICIONADO COM SUCESSO' : (bump.button_text || settings.order_bump_button_text).toUpperCase()}
+                                                        {selectedBumps.some(b => b.id === bump.id) ? '✓ ADICIONADO COM SUCESSO' : (bump.button_text || settings.order_bump_button_text).toUpperCase()}
                                                     </div>
                                                 </div>
                                             </div>
@@ -848,7 +850,7 @@ export function Checkout() {
                                     <span className="font-medium text-gray-600">Total a pagar:</span>
                                     <span className="text-2xl font-extrabold" style={{ color: settings.primary_color }}>
                                         {formatPrice(calculateTotal())}
-                                        {product.plan.is_recurring && !selectedBump && (
+                                        {product.plan.is_recurring && selectedBumps.length === 0 && (
                                             <span className="text-xs font-medium text-gray-400 ml-1">
                                                 /{product.plan.recurring_interval === 'monthly' ? 'mês' : 'ano'}
                                             </span>
