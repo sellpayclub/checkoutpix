@@ -76,7 +76,9 @@ export async function sendToUtmify(order: UtmifyOrder) {
 
 export function getTrackingParameters(): UtmifyTrackingParameters {
     const params = new URLSearchParams(window.location.search);
-    return {
+    const storageKey = 'utmify_tracking_params';
+
+    const currentParams: UtmifyTrackingParameters = {
         src: params.get('src'),
         sck: params.get('sck'),
         utm_source: params.get('utm_source'),
@@ -85,6 +87,31 @@ export function getTrackingParameters(): UtmifyTrackingParameters {
         utm_content: params.get('utm_content'),
         utm_term: params.get('utm_term'),
     };
+
+    // Check if any current params exist
+    const hasParams = Object.values(currentParams).some(val => val !== null);
+
+    if (hasParams) {
+        // Save to localStorage
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(currentParams));
+        } catch (e) {
+            console.error('Error saving UTMs to localStorage', e);
+        }
+        return currentParams;
+    }
+
+    // Try to load from localStorage
+    try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {
+        console.error('Error loading UTMs from localStorage', e);
+    }
+
+    return currentParams;
 }
 
 export function getCurrentDateTime() {

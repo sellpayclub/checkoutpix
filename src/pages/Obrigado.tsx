@@ -19,6 +19,7 @@ export function Obrigado() {
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [pixels, setPixels] = useState<string[]>([]);
+    const [resent, setResent] = useState(false);
 
     useEffect(() => {
         loadPixels();
@@ -55,7 +56,10 @@ export function Obrigado() {
             window.fbq('init', id);
         });
 
-        window.fbq('track', 'PageView');
+        // Use trackSingle to ensure all pixels get the event
+        pixels.forEach(id => {
+            window.fbq('trackSingle', id, 'PageView');
+        });
     }, [pixels]);
 
     function firePixelEvent(event: string, data?: Record<string, unknown>) {
@@ -64,6 +68,17 @@ export function Obrigado() {
                 window.fbq('trackSingle', id, event, data);
             });
         }
+    }
+
+    function handleManualResend() {
+        if (!order) return;
+        firePixelEvent('Purchase', {
+            value: order.amount / 100,
+            currency: 'BRL',
+            content_name: order.product?.name
+        });
+        setResent(true);
+        setTimeout(() => setResent(false), 3000);
     }
 
     useEffect(() => {
@@ -93,15 +108,15 @@ export function Obrigado() {
                     currency: 'BRL',
                     content_name: orderData.product?.name
                 });
-            }, 2000);
+            }, 500); // Reduced to 500ms to ensure it fires before redirect
 
             // Check for redirect
             const deliverable = orderData.product?.product_deliverables?.[0];
             if (deliverable?.type === 'redirect' && deliverable.redirect_url) {
-                // Show page briefly then redirect
+                // Show page briefly then redirect - increased to 3 seconds to allow pixels to fire
                 setTimeout(() => {
                     window.location.href = deliverable.redirect_url!;
-                }, 1000);
+                }, 3000);
             }
         } catch (error) {
             console.error('Error loading order:', error);
@@ -137,9 +152,31 @@ export function Obrigado() {
                 <h1 className="text-3xl font-extrabold text-gray-900 mb-3">
                     Obrigado! 🎉
                 </h1>
-                <p className="text-gray-500 mb-8">
+                <p className="text-gray-500 mb-4">
                     Olá <strong>{order.customer_name.split(' ')[0]}</strong>, seu pagamento foi confirmado!
                 </p>
+
+                <div className="mb-6">
+                    <button
+                        onClick={handleManualResend}
+                        disabled={resent}
+                        className={`text-xs font-medium px-3 py-1.5 rounded-full border transition-all flex items-center gap-1.5 mx-auto ${resent
+                            ? 'bg-green-50 text-green-600 border-green-200'
+                            : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
+                            }`}
+                    >
+                        {resent ? (
+                            <><Check size={12} /> Evento Enviado!</>
+                        ) : (
+                            <><Facebook size={12} /> Reenviar Pixel de Compra</>
+                        )}
+                    </button>
+                    {!resent && (
+                        <p className="text-[10px] text-gray-400 mt-1">
+                            Use se notar que a conversão não apareceu no seu painel
+                        </p>
+                    )}
+                </div>
 
                 {/* Order Info */}
                 <div className="bg-gray-50 rounded-2xl p-5 mb-8 text-left">

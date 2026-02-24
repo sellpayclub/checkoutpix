@@ -85,6 +85,7 @@ export function Checkout() {
     } | null>(null);
     const [isPaid, setIsPaid] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [resent, setResent] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -160,6 +161,12 @@ export function Checkout() {
                     const total = calculateTotalFromRefs();
 
                     if (currentProduct) {
+                        firePixelEvent('Purchase', {
+                            value: total,
+                            currency: 'BRL',
+                            content_name: currentProduct.name
+                        });
+
                         await sendToUtmify({
                             orderId: pixData.correlationId,
                             platform: 'SellPay',
@@ -223,7 +230,7 @@ export function Checkout() {
                             }
                         }
                         navigate(`/obrigado/${pixData.correlationId}`);
-                    }, 2000);
+                    }, 3000); // Increased to 3s to ensure pixel and Utmify events fire
                 }
             } catch (error) {
                 console.log('Verificando pagamento...');
@@ -306,6 +313,17 @@ export function Checkout() {
                 (window as any).fbq('trackSingle', id, event, data);
             });
         }
+    }
+
+    function handleManualResend() {
+        if (!product) return;
+        firePixelEvent('Purchase', {
+            value: calculateTotal(),
+            currency: 'BRL',
+            content_name: product.name
+        });
+        setResent(true);
+        setTimeout(() => setResent(false), 3000);
     }
 
     function calculateTotal(): number {
@@ -479,7 +497,23 @@ export function Checkout() {
                         <Check size={48} className="text-white" />
                     </div>
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Pagamento Confirmado!</h1>
-                    <p className="text-gray-500 mb-6">Seu pagamento foi recebido com sucesso.</p>
+                    <p className="text-gray-500 mb-4">Seu pagamento foi recebido com sucesso.</p>
+
+                    <button
+                        onClick={handleManualResend}
+                        disabled={resent}
+                        className={`text-xs font-medium px-4 py-2 rounded-full border transition-all flex items-center gap-2 mx-auto mb-6 ${resent
+                            ? 'bg-green-50 text-green-600 border-green-200'
+                            : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'
+                            }`}
+                    >
+                        {resent ? (
+                            <><Check size={14} /> Evento Enviado!</>
+                        ) : (
+                            <><Facebook size={14} /> Reenviar Pixel de Compra</>
+                        )}
+                    </button>
+
                     <p className="text-sm text-gray-400">Redirecionando...</p>
                 </div>
             </div>
@@ -488,23 +522,6 @@ export function Checkout() {
 
     return (
         <div className="min-h-screen bg-gray-100">
-            {/* Facebook Pixel */}
-            {pixels.map((pixelId) => (
-                <script key={pixelId} dangerouslySetInnerHTML={{
-                    __html: `
-            !function(f,b,e,v,n,t,s)
-            {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-            n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-            if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-            n.queue=[];t=b.createElement(e);t.async=!0;
-            t.src=v;s=b.getElementsByTagName(e)[0];
-            s.parentNode.insertBefore(t,s)}(window, document,'script',
-            'https://connect.facebook.net/en_US/fbevents.js');
-            fbq('init', '${pixelId}');
-            fbq('track', 'PageView');
-          `
-                }} />
-            ))}
 
             {/* Timer Bar */}
             {settings.timer_enabled && timeLeft > 0 && (
