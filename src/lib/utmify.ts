@@ -21,17 +21,13 @@ export interface UtmifyProduct {
 }
 
 export interface UtmifyTrackingParameters {
-    src?: string | null;
-    sck?: string | null;
-    utm_source?: string | null;
-    utm_campaign?: string | null;
-    utm_medium?: string | null;
-    utm_content?: string | null;
-    utm_term?: string | null;
-    fbclid?: string | null;
-    gclid?: string | null;
-    ttclid?: string | null;
-    [key: string]: string | null | undefined;
+    src: string | null;
+    sck: string | null;
+    utm_source: string | null;
+    utm_campaign: string | null;
+    utm_medium: string | null;
+    utm_content: string | null;
+    utm_term: string | null;
 }
 
 export interface UtmifyCommission {
@@ -73,7 +69,7 @@ export async function getUserIP(): Promise<string | undefined> {
 export async function sendToUtmify(order: UtmifyOrder) {
     try {
         // Log outgoing payload for debugging
-        console.debug('[Utmify] Sending event:', order.status, order);
+        console.log('[Utmify] Attempting to send event:', order.status);
 
         const response = await fetch(UTMIFY_ENDPOINT, {
             method: 'POST',
@@ -85,23 +81,16 @@ export async function sendToUtmify(order: UtmifyOrder) {
 
         if (!response.ok) {
             const errorText = await response.text();
-            let errorJson;
-            try {
-                errorJson = JSON.parse(errorText);
-            } catch (e) {
-                errorJson = errorText;
-            }
-            console.error('[Utmify] API Error:', {
-                status: response.status,
-                error: errorJson,
-                orderId: order.orderId,
-                status_sent: order.status
-            });
+            console.error('[Utmify] Proxy Error:', response.status, errorText);
+
+            // Fallback for local dev or if proxy fails: Try direct call if we are in local dev?
+            // Actually, better to just log it and let the order proceed.
         } else {
-            console.log(`[Utmify] Event ${order.status} sent successfully for order ${order.orderId}`);
+            console.log(`[Utmify] Event ${order.status} sent successfully`);
         }
     } catch (error) {
-        console.error('[Utmify] Network/Internal Error:', error);
+        // CRITICAL: We NEVER let Utmify errors break the user's checkout experience
+        console.error('[Utmify] Integration Error (silenced):', error);
     }
 }
 
@@ -109,66 +98,64 @@ export function getTrackingParameters(): UtmifyTrackingParameters {
     const params = new URLSearchParams(window.location.search);
     const storageKey = 'utmify_tracking_params';
 
-    // Core keys we track by default
-    const trackedKeys = [
-        'src', 'sck', 'utm_source', 'utm_campaign', 'utm_medium', 'utm_content', 'utm_term',
-        'fbclid', 'gclid', 'ttclid', 'utm_id', 'utm_placement', 'utm_creative',
-        'pixel_id', 'ad_id', 'adset_id', 'campaign_id'
+    // Strict Utmify fields
+    const trackedKeys: (keyof UtmifyTrackingParameters)[] = [
+        'src', 'sck', 'utm_source', 'utm_campaign', 'utm_medium', 'utm_content', 'utm_term'
     ];
 
-    const currentParams: any = {};
+    const currentParams: Partial<UtmifyTrackingParameters> = {};
+    let hasNewKeys = false;
 
-    // 1. Capture known tracked keys
     trackedKeys.forEach(key => {
         const value = params.get(key);
-        if (value) currentParams[key] = value;
+        if (value) {
+            currentParams[key] = value;
+            hasNewKeys = true;
+        }
     });
 
-    // 2. Capture ANY other parameters that start with utm_ or other common prefixes
-    const prefixes = ['utm_', 'fb_', 'g_', 'msclkid', 'dclid'];
+    // Capture ANY other parameters to persist them locally, even if not sent to Utmify directly
+    const allParamsForStorage: any = { ...currentParams };
+    const prefixes = ['utm_', 'fb_', 'g_', 'msclkid', 'dclid', 'fbclid', 'gclid', 'ttclid'];
     params.forEach((value, key) => {
         const hasPrefix = prefixes.some(p => key.startsWith(p));
-        if (hasPrefix && !currentParams[key]) {
-            currentParams[key] = value;
+        if (hasPrefix && !allParamsForStorage[key]) {
+            allParamsForStorage[key] = value;
+            hasNewKeys = true;
         }
     });
 
-    // 3. Check if we have any current params to persist
-    const hasCurrentParams = Object.keys(currentParams).length > 0;
-
-    if (hasCurrentParams) {
-        // Merge with existing stored params to not lose them
-        let merged = { ...currentParams };
-        try {
-            const stored = localStorage.getItem(storageKey);
-            if (stored) {
-                const storedParams = JSON.parse(stored);
-                merged = { ...storedParams, ...currentParams };
-            }
-            localStorage.setItem(storageKey, JSON.stringify(merged));
-        } catch (e) {
-            console.error('Error saving UTMs', e);
-        }
-        return merged;
-    }
-
-    // 4. Try to load from localStorage if URL is empty
+    let merged = { ...allParamsForStorage };
     try {
         const stored = localStorage.getItem(storageKey);
         if (stored) {
-            return JSON.parse(stored);
+            const storedParams = JSON.parse(stored);
+            merged = { ...storedParams, ...allParamsForStorage };
+        }
+        if (hasNewKeys) {
+            localStorage.setItem(storageKey, JSON.stringify(merged));
         }
     } catch (e) {
-        console.error('Error loading UTMs', e);
+        console.error('Error with UTM localStorage', e);
     }
 
-    return currentParams as UtmifyTrackingParameters;
+    // Return strictly formatted Utmify parameters, ensuring all are at least null
+    return {
+        src: merged.src || null,
+        sck: merged.sck || null,
+        utm_source: merged.utm_source || null,
+        utm_campaign: merged.utm_campaign || null,
+        utm_medium: merged.utm_medium || null,
+        utm_content: merged.utm_content || null,
+        utm_term: merged.utm_term || null,
+    };
 }
 
 export function getCurrentDateTime() {
-    return new Date().toISOString().replace('T', ' ').split('.')[0];
+    // Exact format YYYY-MM-DD HH:MM:SS
+    return new Date().toISOString().replace('T', ' ').substring(0, 19);
 }
 
 export function formatToUtmifyDate(dateString: string) {
-    return new Date(dateString).toISOString().replace('T', ' ').split('.')[0];
+    return new Date(dateString).toISOString().replace('T', ' ').substring(0, 19);
 }

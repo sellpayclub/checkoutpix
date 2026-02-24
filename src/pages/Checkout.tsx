@@ -125,14 +125,14 @@ export function Checkout() {
         const tracking = getTrackingParameters();
 
         if (!trackedRef.current.pageView) {
-            firePixelEvent('PageView', tracking);
+            firePixelEvent('PageView', tracking as any);
             trackedRef.current.pageView = true;
         }
 
         // Only fire InitiateCheckout once we have product info
         if (!trackedRef.current.initiateCheckout && product) {
             firePixelEvent('InitiateCheckout', {
-                ...tracking,
+                ...(tracking as any),
                 content_name: product.name,
                 content_type: 'product',
                 content_ids: [product.id],
@@ -215,7 +215,7 @@ export function Checkout() {
 
                     await updateOrderStatus(correlationId, 'APPROVED', status.paidAt);
 
-                    await sendToUtmify({
+                    void sendToUtmify({
                         orderId: correlationId,
                         platform: 'SellPay',
                         paymentMethod: 'pix',
@@ -479,8 +479,8 @@ export function Checkout() {
                 correlationId,
             });
 
-            // Notify Utmify (Pending)
-            await sendToUtmify({
+            // Notify Utmify (Pending) - Fire and forget
+            void sendToUtmify({
                 orderId: correlationId,
                 platform: 'SellPay',
                 paymentMethod: 'pix',

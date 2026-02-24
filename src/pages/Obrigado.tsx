@@ -148,7 +148,7 @@ export function Obrigado() {
                 const ip = await getUserIP();
                 const total = orderData.amount;
 
-                await sendToUtmify({
+                void sendToUtmify({
                     orderId: correlationId!,
                     platform: 'SellPay',
                     paymentMethod: 'pix',
