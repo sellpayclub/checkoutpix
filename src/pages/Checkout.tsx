@@ -293,7 +293,7 @@ export function Checkout() {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
-    }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate, trackingParams, planId]);
+    }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate, trackingParams, planId, pixels]);
 
     async function loadData() {
         if (!productId || !planId) {
