@@ -6,7 +6,7 @@ import { getOrderByCorrelationId, getPixels } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
 import type { Order } from '../types';
 
-import { getTrackingParameters } from '../lib/utmify';
+import { getTrackingParameters, sendToUtmify, getUserIP, formatToUtmifyDate, getCurrentDateTime } from '../lib/utmify';
 
 declare global {
     interface Window {
@@ -141,6 +141,47 @@ export function Obrigado() {
 
             setOrder(orderData as Order);
             setIsLoading(false);
+
+            // Notify Utmify Fallback (Paid)
+            const utmifyStorageKey = `utmify_paid_${correlationId}`;
+            if (!localStorage.getItem(utmifyStorageKey)) {
+                const ip = await getUserIP();
+                const total = orderData.amount;
+
+                await sendToUtmify({
+                    orderId: correlationId!,
+                    platform: 'SellPay',
+                    paymentMethod: 'pix',
+                    status: 'paid',
+                    createdAt: formatToUtmifyDate(orderData.created_at),
+                    approvedDate: orderData.paid_at ? formatToUtmifyDate(orderData.paid_at) : getCurrentDateTime(),
+                    refundedAt: null,
+                    customer: {
+                        name: orderData.customer_name,
+                        email: orderData.customer_email,
+                        phone: orderData.customer_phone.replace(/\D/g, ''),
+                        document: null, // We don't store CPF in DB for privacy/simplicity usually, or it wasn't in schema
+                        ip: ip
+                    },
+                    products: [
+                        {
+                            id: orderData.product?.id || '',
+                            name: orderData.product?.name || '',
+                            planId: orderData.plan_id || null,
+                            planName: null, // Plan name not directly in order join but okay
+                            quantity: 1,
+                            priceInCents: orderData.amount
+                        }
+                    ],
+                    trackingParameters: getTrackingParameters(),
+                    commission: {
+                        totalPriceInCents: total,
+                        gatewayFeeInCents: Math.round(total * 0.05),
+                        userCommissionInCents: total > 0 ? Math.max(1, Math.round(total * 0.95)) : 0
+                    }
+                });
+                localStorage.setItem(utmifyStorageKey, 'true');
+            }
 
             // Handle redirect
             const deliverable = orderData.product?.product_deliverables?.[0];

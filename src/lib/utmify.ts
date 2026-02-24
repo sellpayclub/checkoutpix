@@ -21,30 +21,30 @@ export interface UtmifyProduct {
 }
 
 export interface UtmifyTrackingParameters {
-    src: string | null;
-    sck: string | null;
-    utm_source: string | null;
-    utm_campaign: string | null;
-    utm_medium: string | null;
-    utm_content: string | null;
-    utm_term: string | null;
-    fbclid: string | null;
-    gclid: string | null;
-    ttclid: string | null;
-    [key: string]: string | null; // Allow any other parameters
+    src?: string | null;
+    sck?: string | null;
+    utm_source?: string | null;
+    utm_campaign?: string | null;
+    utm_medium?: string | null;
+    utm_content?: string | null;
+    utm_term?: string | null;
+    fbclid?: string | null;
+    gclid?: string | null;
+    ttclid?: string | null;
+    [key: string]: string | null | undefined;
 }
 
 export interface UtmifyCommission {
     totalPriceInCents: number;
     gatewayFeeInCents: number;
     userCommissionInCents: number;
-    currency?: string;
+    currency?: 'BRL' | 'USD' | 'EUR' | 'GBP' | 'ARS' | 'CAD' | 'COP' | 'MXN' | 'PYG' | 'CLP' | 'PEN' | 'PLN';
 }
 
 export interface UtmifyOrder {
     orderId: string;
     platform: string;
-    paymentMethod: 'pix';
+    paymentMethod: 'credit_card' | 'boleto' | 'pix' | 'paypal' | 'free_price';
     status: 'waiting_payment' | 'paid' | 'refused' | 'refunded' | 'chargedback';
     createdAt: string;
     approvedDate: string | null;
@@ -56,8 +56,25 @@ export interface UtmifyOrder {
     isTest?: boolean;
 }
 
+/**
+ * Fetches user's public IP address using a public API
+ */
+export async function getUserIP(): Promise<string | undefined> {
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+    } catch (error) {
+        console.warn('[Utmify] Could not fetch IP:', error);
+        return undefined;
+    }
+}
+
 export async function sendToUtmify(order: UtmifyOrder) {
     try {
+        // Log outgoing payload for debugging
+        console.debug('[Utmify] Sending event:', order.status, order);
+
         const response = await fetch(UTMIFY_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -68,13 +85,24 @@ export async function sendToUtmify(order: UtmifyOrder) {
         });
 
         if (!response.ok) {
-            const error = await response.json();
-            console.error('Utmify API error:', error);
+            const errorText = await response.text();
+            let errorJson;
+            try {
+                errorJson = JSON.parse(errorText);
+            } catch (e) {
+                errorJson = errorText;
+            }
+            console.error('[Utmify] API Error:', {
+                status: response.status,
+                error: errorJson,
+                orderId: order.orderId,
+                status_sent: order.status
+            });
         } else {
             console.log(`[Utmify] Event ${order.status} sent successfully for order ${order.orderId}`);
         }
     } catch (error) {
-        console.error('Error sending to Utmify:', error);
+        console.error('[Utmify] Network/Internal Error:', error);
     }
 }
 
@@ -82,28 +110,31 @@ export function getTrackingParameters(): UtmifyTrackingParameters {
     const params = new URLSearchParams(window.location.search);
     const storageKey = 'utmify_tracking_params';
 
-    // List of parameters we specifically want to track
+    // Core keys we track by default
     const trackedKeys = [
         'src', 'sck', 'utm_source', 'utm_campaign', 'utm_medium', 'utm_content', 'utm_term',
-        'fbclid', 'gclid', 'ttclid', 'utm_id', 'utm_placement', 'utm_creative'
+        'fbclid', 'gclid', 'ttclid', 'utm_id', 'utm_placement', 'utm_creative',
+        'pixel_id', 'ad_id', 'adset_id', 'campaign_id'
     ];
 
     const currentParams: any = {};
 
-    // 1. Try to get from URL
+    // 1. Capture known tracked keys
     trackedKeys.forEach(key => {
         const value = params.get(key);
         if (value) currentParams[key] = value;
     });
 
-    // Capture ANY other parameters that start with utm_
+    // 2. Capture ANY other parameters that start with utm_ or other common prefixes
+    const prefixes = ['utm_', 'fb_', 'g_', 'msclkid', 'dclid'];
     params.forEach((value, key) => {
-        if (key.startsWith('utm_') && !currentParams[key]) {
+        const hasPrefix = prefixes.some(p => key.startsWith(p));
+        if (hasPrefix && !currentParams[key]) {
             currentParams[key] = value;
         }
     });
 
-    // 2. Check if we have any current params
+    // 3. Check if we have any current params to persist
     const hasCurrentParams = Object.keys(currentParams).length > 0;
 
     if (hasCurrentParams) {
@@ -122,7 +153,7 @@ export function getTrackingParameters(): UtmifyTrackingParameters {
         return merged;
     }
 
-    // 3. Try to load from localStorage if URL is empty
+    // 4. Try to load from localStorage if URL is empty
     try {
         const stored = localStorage.getItem(storageKey);
         if (stored) {
@@ -137,4 +168,8 @@ export function getTrackingParameters(): UtmifyTrackingParameters {
 
 export function getCurrentDateTime() {
     return new Date().toISOString().replace('T', ' ').split('.')[0];
+}
+
+export function formatToUtmifyDate(dateString: string) {
+    return new Date(dateString).toISOString().replace('T', ' ').split('.')[0];
 }

@@ -6,7 +6,7 @@ import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderSta
 import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, cleanPhone } from '../lib/openpix';
 import { sendPixGeneratedEmail, sendPurchaseApprovedEmail } from '../lib/resend';
 import { formatTimer, isValidEmail, isValidPhone, isValidCPF, formatCPF, formatPhoneMask, copyToClipboard } from '../lib/utils';
-import { sendToUtmify, getTrackingParameters, getCurrentDateTime } from '../lib/utmify';
+import { sendToUtmify, getTrackingParameters, getCurrentDateTime, getUserIP } from '../lib/utmify';
 import type { CheckoutFormData, ProductPlan } from '../types';
 
 // Logo SellPay default
@@ -62,6 +62,7 @@ export function Checkout() {
     const [errors, setErrors] = useState<Partial<CheckoutFormData>>({});
     const [selectedBump, setSelectedBump] = useState<OrderBumpData | null>(null);
     const [trackingParams] = useState(getTrackingParameters());
+    const [userIP, setUserIP] = useState<string | undefined>();
     const orderCreatedAt = useRef(getCurrentDateTime());
 
     // Refs to avoid stale closures in polling interval
@@ -92,6 +93,8 @@ export function Checkout() {
         if (productId) {
             recordCheckoutVisit(productId);
         }
+        // Fetch public IP for Utmify
+        getUserIP().then(setUserIP);
     }, [productId, planId]);
 
     const trackedRef = useRef({ pageView: false, initiateCheckout: false });
@@ -224,7 +227,8 @@ export function Checkout() {
                             name: currentForm.name,
                             email: currentForm.email,
                             phone: cleanPhone(currentForm.phone),
-                            document: currentForm.cpf || null,
+                            document: currentForm.cpf ? currentForm.cpf.replace(/\D/g, '') : null,
+                            ip: userIP
                         },
                         products: [
                             {
@@ -248,7 +252,7 @@ export function Checkout() {
                         commission: {
                             totalPriceInCents: total,
                             gatewayFeeInCents: Math.round(total * 0.05),
-                            userCommissionInCents: Math.round(total * 0.95)
+                            userCommissionInCents: total > 0 ? Math.max(1, Math.round(total * 0.95)) : 0
                         }
                     });
 
@@ -488,7 +492,8 @@ export function Checkout() {
                     name: form.name,
                     email: form.email,
                     phone: cleanPhone(form.phone),
-                    document: form.cpf || null,
+                    document: form.cpf ? form.cpf.replace(/\D/g, '') : null,
+                    ip: userIP
                 },
                 products: [
                     {
@@ -512,7 +517,7 @@ export function Checkout() {
                 commission: {
                     totalPriceInCents: total,
                     gatewayFeeInCents: Math.round(total * 0.05), // Estimated fee
-                    userCommissionInCents: Math.round(total * 0.95)
+                    userCommissionInCents: total > 0 ? Math.max(1, Math.round(total * 0.95)) : 0
                 }
             });
         } catch (error) {
