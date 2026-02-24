@@ -1,6 +1,6 @@
 
-const UTMIFY_TOKEN = '1yUDmnd8pszFtqHqLk4YOJFQE8mVKz9IFi2Q';
-const UTMIFY_ENDPOINT = 'https://api.utmify.com.br/api-credentials/orders';
+// UTMify configurations moved to /api/utmify proxy for security and CORS compliance
+const UTMIFY_ENDPOINT = '/api/utmify';
 
 export interface UtmifyCustomer {
     name: string;
@@ -78,8 +78,7 @@ export async function sendToUtmify(order: UtmifyOrder) {
         const response = await fetch(UTMIFY_ENDPOINT, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'x-api-token': UTMIFY_TOKEN
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(order)
         });
