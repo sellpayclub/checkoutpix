@@ -38,7 +38,7 @@ export function Obrigado() {
                 // Show page briefly then redirect
                 setTimeout(() => {
                     window.location.href = deliverable.redirect_url!;
-                }, 3000);
+                }, 1000);
             }
         } catch (error) {
             console.error('Error loading order:', error);

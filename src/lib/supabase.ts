@@ -514,7 +514,7 @@ export async function getOrderByCorrelationId(correlationId: string): Promise<Or
         .from('orders')
         .select(`
             *,
-            product:products(*),
+            product:products(*, product_deliverables(*)),
             plan:product_plans(*),
             order_bump:order_bumps(*)
         `)

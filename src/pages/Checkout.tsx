@@ -142,6 +142,13 @@ export function Checkout() {
                     }
 
                     setTimeout(() => {
+                        if (currentProduct) {
+                            const deliverable = currentProduct.deliverables?.[0];
+                            if (deliverable?.type === 'redirect' && deliverable.redirect_url) {
+                                window.location.href = deliverable.redirect_url;
+                                return;
+                            }
+                        }
                         navigate(`/obrigado/${pixData.correlationId}`);
                     }, 2000);
                 }
