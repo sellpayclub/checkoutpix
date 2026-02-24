@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles } from 'lucide-react';
+import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles, Facebook } from 'lucide-react';
 import { Button } from '../components/ui';
 import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderStatus, getOrderBumps, recordCheckoutVisit } from '../lib/supabase';
 import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, cleanPhone } from '../lib/openpix';

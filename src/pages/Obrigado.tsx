@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Check, Download, ExternalLink } from 'lucide-react';
+import { Check, Download, ExternalLink, Facebook } from 'lucide-react';
 import { Button } from '../components/ui';
 import { getOrderByCorrelationId, getPixels } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
