@@ -549,20 +549,20 @@ export function Checkout() {
                                             key={bump.id}
                                             onClick={() => setSelectedBump(selectedBump?.id === bump.id ? null : bump)}
                                             className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedBump?.id === bump.id
-                                                ? 'border-emerald-500 bg-emerald-50'
+                                                ? 'border-solid bg-emerald-50/30'
                                                 : 'border-dashed border-gray-200 hover:border-gray-300'
                                                 }`}
                                             style={selectedBump?.id === bump.id ? {
-                                                borderColor: bump.box_color,
-                                                backgroundColor: `${bump.box_color}10`
+                                                borderColor: settings.primary_color,
+                                                backgroundColor: `${settings.primary_color}08`
                                             } : undefined}
                                         >
-                                            <div className="flex items-start gap-3">
+                                            <div className="flex items-start gap-4">
                                                 <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${selectedBump?.id === bump.id
                                                     ? 'bg-emerald-500 border-emerald-500'
                                                     : 'border-gray-300'
                                                     }`}
-                                                    style={selectedBump?.id === bump.id ? { backgroundColor: bump.box_color, borderColor: bump.box_color } : undefined}
+                                                    style={selectedBump?.id === bump.id ? { backgroundColor: settings.primary_color, borderColor: settings.primary_color } : undefined}
                                                 >
                                                     {selectedBump?.id === bump.id && (
                                                         <Check size={12} className="text-white" />
@@ -579,21 +579,21 @@ export function Checkout() {
                                                 )}
 
                                                 <div className="flex-1">
-                                                    <div className="flex justify-between items-start">
+                                                    <div className="flex justify-between items-start mb-1">
                                                         <p className="font-bold text-gray-900 text-sm">{bump.title}</p>
-                                                        <p className="font-bold text-sm whitespace-nowrap ml-2" style={{ color: bump.box_color }}>
+                                                        <p className="font-bold text-sm whitespace-nowrap ml-2" style={{ color: settings.primary_color }}>
                                                             + {formatPrice(bump.price)}
                                                         </p>
                                                     </div>
 
                                                     {bump.description && (
-                                                        <p className="text-gray-500 text-xs mt-1 leading-relaxed">{bump.description}</p>
+                                                        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{bump.description}</p>
                                                     )}
 
-                                                    <div className="mt-2 text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg inline-block transition-colors"
+                                                    <div className="mt-3 text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg inline-block transition-all"
                                                         style={{
-                                                            backgroundColor: selectedBump?.id === bump.id ? bump.box_color : '#f3f4f6',
-                                                            color: selectedBump?.id === bump.id ? 'white' : 'gray'
+                                                            backgroundColor: selectedBump?.id === bump.id ? settings.primary_color : `${settings.primary_color}15`,
+                                                            color: selectedBump?.id === bump.id ? '#ffffff' : settings.primary_color
                                                         }}>
                                                         {selectedBump?.id === bump.id ? 'ADICIONADO' : (bump.button_text || settings.order_bump_button_text).toUpperCase()}
                                                     </div>
