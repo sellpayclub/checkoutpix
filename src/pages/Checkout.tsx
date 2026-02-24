@@ -183,16 +183,30 @@ export function Checkout() {
                     if (currentProduct) {
                         const storageKey = `tracked_purchase_${correlationId}`;
                         if (!localStorage.getItem(storageKey)) {
+                            // Re-init for Advanced Matching just before purchase
+                            pixels.forEach(id => {
+                                (window as any).fbq('init', id, {
+                                    em: currentForm.email.toLowerCase().trim(),
+                                    fn: currentForm.name.split(' ')[0].toLowerCase().trim(),
+                                    ln: (currentForm.name.split(' ').slice(1).join(' ') || '').toLowerCase().trim(),
+                                    ph: cleanPhone(currentForm.phone)
+                                });
+                            });
+
                             firePixelEvent('Purchase', {
                                 ...getTrackingParameters(),
                                 value: total / 100,
                                 currency: 'BRL',
                                 content_name: currentProduct.name,
                                 content_type: 'product',
-                                content_ids: [currentProduct.id]
+                                content_ids: [
+                                    currentProduct.id,
+                                    ...(currentBump ? [currentBump.id] : [])
+                                ],
+                                num_items: 1 + (currentBump ? 1 : 0)
                             });
                             localStorage.setItem(storageKey, 'true');
-                            console.log('[Pixel] Purchase tracking fired');
+                            console.log('[Pixel] Purchase tracking fired with Advanced Matching');
                         }
                     }
 
@@ -269,7 +283,7 @@ export function Checkout() {
                             }
                         }
                         navigate(`/obrigado/${correlationId}`);
-                    }, 3000);
+                    }, 4000); // Increased to 4s for safety
                 }
             } catch (error) {
                 console.log('Verificando pagamento...');

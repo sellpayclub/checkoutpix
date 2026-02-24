@@ -95,16 +95,30 @@ export function Obrigado() {
 
             // Deduplicate: Don't fire if already fired (either here or on checkout page)
             if (!localStorage.getItem(storageKey)) {
+                // Re-init for Advanced Matching
+                pixels.forEach(id => {
+                    (window as any).fbq('init', id, {
+                        em: order.customer_email.toLowerCase().trim(),
+                        fn: (order.customer_name || '').split(' ')[0].toLowerCase().trim(),
+                        ln: ((order.customer_name || '').split(' ').slice(1).join(' ') || '').toLowerCase().trim(),
+                        ph: order.customer_phone.replace(/\D/g, '')
+                    });
+                });
+
                 firePixelEvent('Purchase', {
                     ...getTrackingParameters(),
                     value: order.amount / 100,
                     currency: 'BRL',
                     content_name: order.product?.name,
                     content_type: 'product',
-                    content_ids: [order.product_id]
+                    content_ids: [
+                        order.product_id,
+                        ...(order.order_bump_id ? [order.order_bump_id] : [])
+                    ],
+                    num_items: 1 + (order.order_bump_id ? 1 : 0)
                 });
                 localStorage.setItem(storageKey, 'true');
-                console.log('[Pixel] Purchase tracking fired in Thank You page');
+                console.log('[Pixel] Purchase tracking fired in Thank You page with Advanced Matching');
             } else {
                 console.log('[Pixel] Purchase already tracked for:', correlationId);
             }
