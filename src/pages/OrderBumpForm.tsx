@@ -330,7 +330,7 @@ export function OrderBumpForm() {
                                             + R$ {price || '0,00'}
                                         </p>
                                     </div>
-                                    <p className="text-xs text-gray-500 mb-2">
+                                    <p className="text-xs text-gray-500 mb-2 whitespace-pre-wrap leading-relaxed">
                                         {description || 'Descrição da oferta aparece aqui...'}
                                     </p>
                                     <div

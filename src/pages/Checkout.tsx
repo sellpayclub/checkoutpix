@@ -594,7 +594,7 @@ export function Checkout() {
                                                     </div>
 
                                                     {bump.description && (
-                                                        <p className="text-gray-500 text-xs leading-relaxed line-clamp-2">{bump.description}</p>
+                                                        <p className="text-gray-500 text-xs leading-relaxed whitespace-pre-wrap mt-1">{bump.description}</p>
                                                     )}
 
                                                     <div className="mt-3 text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded-xl inline-block transition-all shadow-sm hover:brightness-110 active:scale-95"
