@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Palette, Upload, Trash2 } from 'lucide-react';
 import { Button, Card, Input } from '../components/ui';
-import { getOrderBump, createOrderBump, updateOrderBump, getProducts, linkOrderBumpToProduct, uploadFile } from '../lib/supabase';
+import { getOrderBump, createOrderBump, updateOrderBump, getProducts, linkOrderBumpToProduct, uploadFile, getCheckoutSettings } from '../lib/supabase';
 import { parsePriceToCents } from '../lib/openpix';
 
 export function OrderBumpForm() {
@@ -32,14 +32,13 @@ export function OrderBumpForm() {
     const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
     const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
-    useEffect(() => {
-        loadData();
-    }, [id]);
-
-    async function loadData() {
+    const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            const productsData = await getProducts();
+            const [productsData, settingsData] = await Promise.all([
+                getProducts(),
+                getCheckoutSettings()
+            ]);
             setProducts(productsData || []);
 
             if (id) {
@@ -55,15 +54,20 @@ export function OrderBumpForm() {
                     setIsActive(bump.is_active);
                     setImageUrl(bump.image_url);
                     setImagePreview(bump.image_url);
-                    // Note: Would need to query product_order_bumps to get linked products
                 }
+            } else if (settingsData) {
+                setBoxColor(settingsData.primary_color);
             }
         } catch (error) {
             console.error('Error loading data:', error);
         } finally {
             setIsLoading(false);
         }
-    }
+    }, [id]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -265,7 +269,7 @@ export function OrderBumpForm() {
                     <div className="grid grid-cols-2 gap-4 mb-6">
                         <div>
                             <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">
-                                Cor do fundo
+                                Cor de Destaque (Bordas / Botão)
                             </label>
                             <div className="flex items-center gap-2">
                                 <input
@@ -304,18 +308,42 @@ export function OrderBumpForm() {
                     {/* Preview */}
                     <div>
                         <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                            Prévia
+                            Prévia (Como aparecerá no Checkout)
                         </label>
                         <div
-                            className="p-4 rounded-xl"
-                            style={{ backgroundColor: boxColor }}
+                            className="p-4 rounded-xl border-2"
+                            style={{
+                                borderColor: boxColor,
+                                backgroundColor: `${boxColor}10`
+                            }}
                         >
-                            <p className="font-bold text-sm mb-1" style={{ color: textColor }}>
-                                {title || 'Título do Order Bump'}
-                            </p>
-                            <p className="text-sm opacity-90" style={{ color: textColor }}>
-                                {description || 'Descrição da oferta aparece aqui...'}
-                            </p>
+                            <div className="flex gap-3">
+                                {imagePreview && (
+                                    <img src={imagePreview} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" alt="Preview" />
+                                )}
+                                <div className="flex-1">
+                                    <div className="flex justify-between items-start">
+                                        <p className="font-bold text-sm mb-1 text-gray-900">
+                                            {title || 'Título do Order Bump'}
+                                        </p>
+                                        <p className="font-bold text-sm whitespace-nowrap ml-2" style={{ color: boxColor }}>
+                                            + R$ {price || '0,00'}
+                                        </p>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-2">
+                                        {description || 'Descrição da oferta aparece aqui...'}
+                                    </p>
+                                    <div
+                                        className="text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg inline-block"
+                                        style={{
+                                            backgroundColor: boxColor,
+                                            color: '#ffffff'
+                                        }}
+                                    >
+                                        {buttonText || 'Adicionar oferta'}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </Card>
