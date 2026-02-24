@@ -6,6 +6,7 @@ import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderSta
 import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, cleanPhone } from '../lib/openpix';
 import { sendPixGeneratedEmail, sendPurchaseApprovedEmail } from '../lib/resend';
 import { formatTimer, isValidEmail, isValidPhone, isValidCPF, formatCPF, formatPhoneMask, copyToClipboard } from '../lib/utils';
+import { sendToUtmify, getTrackingParameters, getCurrentDateTime } from '../lib/utmify';
 import type { CheckoutFormData, ProductPlan } from '../types';
 
 // Logo SellPay default
@@ -60,6 +61,8 @@ export function Checkout() {
     const [form, setForm] = useState<CheckoutFormData>({ name: '', email: '', phone: '', cpf: '' });
     const [errors, setErrors] = useState<Partial<CheckoutFormData>>({});
     const [selectedBump, setSelectedBump] = useState<OrderBumpData | null>(null);
+    const [trackingParams] = useState(getTrackingParameters());
+    const orderCreatedAt = useRef(getCurrentDateTime());
 
     // Refs to avoid stale closures in polling interval
     const productRef = useRef(product);
@@ -150,9 +153,55 @@ export function Checkout() {
                     if (pollingRef.current) clearInterval(pollingRef.current);
                     await updateOrderStatus(pixData.correlationId, 'APPROVED', status.paidAt);
 
-                    // Send purchase approved email (use refs for current values)
+                    // Notify Utmify (Paid)
                     const currentProduct = productRef.current;
                     const currentForm = formRef.current;
+                    const currentBump = selectedBumpRef.current;
+                    const total = calculateTotalFromRefs();
+
+                    if (currentProduct) {
+                        await sendToUtmify({
+                            orderId: pixData.correlationId,
+                            platform: 'SellPay',
+                            paymentMethod: 'pix',
+                            status: 'paid',
+                            createdAt: orderCreatedAt.current,
+                            approvedDate: getCurrentDateTime(),
+                            refundedAt: null,
+                            customer: {
+                                name: currentForm.name,
+                                email: currentForm.email,
+                                phone: cleanPhone(currentForm.phone),
+                                document: currentForm.cpf || null,
+                            },
+                            products: [
+                                {
+                                    id: currentProduct.id,
+                                    name: currentProduct.name,
+                                    planId: planId || null,
+                                    planName: currentProduct.plan.name,
+                                    quantity: 1,
+                                    priceInCents: currentProduct.plan.price
+                                },
+                                ...(currentBump ? [{
+                                    id: currentBump.id,
+                                    name: currentBump.name,
+                                    planId: null,
+                                    planName: null,
+                                    quantity: 1,
+                                    priceInCents: currentBump.price
+                                }] : [])
+                            ],
+                            trackingParameters: trackingParams,
+                            commission: {
+                                totalPriceInCents: total,
+                                gatewayFeeInCents: Math.round(total * 0.05),
+                                userCommissionInCents: Math.round(total * 0.95)
+                            }
+                        });
+                    }
+
+                    // Send purchase approved email (use refs for current values)
                     if (currentProduct) {
                         const deliverable = currentProduct.deliverables?.[0];
                         await sendPurchaseApprovedEmail({
@@ -346,6 +395,47 @@ export function Checkout() {
                 qrCode: chargeResponse.charge.qrCodeImage,
                 brCode: chargeResponse.charge.brCode,
                 correlationId,
+            });
+
+            // Notify Utmify (Pending)
+            await sendToUtmify({
+                orderId: correlationId,
+                platform: 'SellPay',
+                paymentMethod: 'pix',
+                status: 'waiting_payment',
+                createdAt: orderCreatedAt.current,
+                approvedDate: null,
+                refundedAt: null,
+                customer: {
+                    name: form.name,
+                    email: form.email,
+                    phone: cleanPhone(form.phone),
+                    document: form.cpf || null,
+                },
+                products: [
+                    {
+                        id: product.id,
+                        name: product.name,
+                        planId: planId || null,
+                        planName: product.plan.name,
+                        quantity: 1,
+                        priceInCents: product.plan.price
+                    },
+                    ...(selectedBump ? [{
+                        id: selectedBump.id,
+                        name: selectedBump.name,
+                        planId: null,
+                        planName: null,
+                        quantity: 1,
+                        priceInCents: selectedBump.price
+                    }] : [])
+                ],
+                trackingParameters: trackingParams,
+                commission: {
+                    totalPriceInCents: total,
+                    gatewayFeeInCents: Math.round(total * 0.05), // Estimated fee
+                    userCommissionInCents: Math.round(total * 0.95)
+                }
             });
         } catch (error) {
             console.error('Error creating charge:', error);
