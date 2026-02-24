@@ -2,15 +2,69 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Check, Download, ExternalLink } from 'lucide-react';
 import { Button } from '../components/ui';
-import { getOrderByCorrelationId } from '../lib/supabase';
+import { getOrderByCorrelationId, getPixels } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
 import type { Order } from '../types';
+
+declare global {
+    interface Window {
+        fbq: any;
+        _fbq: any;
+    }
+}
 
 export function Obrigado() {
     const { correlationId } = useParams();
     const navigate = useNavigate();
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [pixels, setPixels] = useState<string[]>([]);
+
+    useEffect(() => {
+        loadPixels();
+    }, []);
+
+    async function loadPixels() {
+        try {
+            const pixelsData = await getPixels();
+            const activePixels = pixelsData?.filter((p: any) => p.is_active).map((p: any) => p.pixel_id) || [];
+            setPixels(activePixels);
+        } catch (error) {
+            console.error('Error loading pixels:', error);
+        }
+    }
+
+    // Initialize Pixels
+    useEffect(() => {
+        if (pixels.length === 0) return;
+
+        if (!window.fbq) {
+            (function (f: any, b: any, e: any, v: any, n?: any, t?: any, s?: any) {
+                if (f.fbq) return; n = f.fbq = function () {
+                    n.callMethod ?
+                        n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+                };
+                if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+                n.queue = []; t = b.createElement(e); t.async = !0;
+                t.src = v; s = b.getElementsByTagName(e)[0];
+                s.parentNode.insertBefore(t, s)
+            })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+        }
+
+        pixels.forEach(id => {
+            window.fbq('init', id);
+        });
+
+        window.fbq('track', 'PageView');
+    }, [pixels]);
+
+    function firePixelEvent(event: string, data?: Record<string, unknown>) {
+        if (typeof window !== 'undefined' && window.fbq) {
+            pixels.forEach(id => {
+                window.fbq('trackSingle', id, event, data);
+            });
+        }
+    }
 
     useEffect(() => {
         loadOrder();
@@ -31,6 +85,15 @@ export function Obrigado() {
             }
 
             setOrder(orderData as Order);
+
+            // Track Purchase
+            setTimeout(() => {
+                firePixelEvent('Purchase', {
+                    value: orderData.amount / 100,
+                    currency: 'BRL',
+                    content_name: orderData.product?.name
+                });
+            }, 2000);
 
             // Check for redirect
             const deliverable = orderData.product?.product_deliverables?.[0];

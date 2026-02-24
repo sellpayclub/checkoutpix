@@ -149,7 +149,6 @@ export function Checkout() {
                     setIsPaid(true);
                     if (pollingRef.current) clearInterval(pollingRef.current);
                     await updateOrderStatus(pixData.correlationId, 'APPROVED', status.paidAt);
-                    firePixelEvent('Purchase', { value: calculateTotalFromRefs() / 100, currency: 'BRL' });
 
                     // Send purchase approved email (use refs for current values)
                     const currentProduct = productRef.current;
