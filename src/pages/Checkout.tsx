@@ -255,7 +255,16 @@ export function Checkout() {
                         if (currentProduct) {
                             const deliverable = (currentProduct as any).deliverables?.[0];
                             if (deliverable?.type === 'redirect' && deliverable.redirect_url) {
-                                window.location.href = deliverable.redirect_url;
+                                try {
+                                    const tracking = getTrackingParameters();
+                                    const url = new URL(deliverable.redirect_url);
+                                    Object.entries(tracking).forEach(([key, value]) => {
+                                        if (value) url.searchParams.set(key, value);
+                                    });
+                                    window.location.href = url.toString();
+                                } catch (e) {
+                                    window.location.href = deliverable.redirect_url;
+                                }
                                 return;
                             }
                         }
