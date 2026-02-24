@@ -68,6 +68,7 @@ export function generateCorrelationId(): string {
  * Format price in cents to BRL currency string
  */
 export function formatPrice(cents: number): string {
+    if (cents === undefined || cents === null || isNaN(cents)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',

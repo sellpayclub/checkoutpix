@@ -93,19 +93,19 @@ export function OrderModal({ order, onClose }: OrderModalProps) {
                                 <div className="p-2 rounded-lg bg-[var(--bg-primary)] text-[var(--text-secondary)]">
                                     <User size={16} />
                                 </div>
-                                <span className="text-[var(--text-primary)] font-bold">{order.customer_name}</span>
+                                <span className="text-[var(--text-primary)] font-bold">{order.customer_name || 'N/A'}</span>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-[var(--bg-primary)] text-[var(--text-secondary)]">
                                     <Mail size={16} />
                                 </div>
-                                <span className="text-[var(--text-secondary)] font-medium">{order.customer_email}</span>
+                                <span className="text-[var(--text-secondary)] font-medium">{order.customer_email || 'N/A'}</span>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-lg bg-[var(--bg-primary)] text-[var(--text-secondary)]">
                                     <Phone size={16} />
                                 </div>
-                                <span className="text-[var(--text-secondary)] font-medium">{order.customer_phone}</span>
+                                <span className="text-[var(--text-secondary)] font-medium">{order.customer_phone || 'N/A'}</span>
                             </div>
                         </div>
                     </div>
@@ -120,8 +120,8 @@ export function OrderModal({ order, onClose }: OrderModalProps) {
                             <div className="flex justify-between items-center">
                                 <span className="text-sm text-[var(--text-tertiary)]">Produto / Plano</span>
                                 <div className="text-right">
-                                    <p className="font-bold text-[var(--text-primary)]">{order.product?.name || '-'}</p>
-                                    <p className="text-xs text-[var(--text-secondary)]">{order.plan?.name || '-'}</p>
+                                    <p className="font-bold text-[var(--text-primary)]">{order.product?.name || order.order_bump?.name || 'Venda Direta'}</p>
+                                    <p className="text-xs text-[var(--text-secondary)]">{order.plan?.name || order.order_bump?.title || '-'}</p>
                                 </div>
                             </div>
                             <div className="flex justify-between items-center pt-3 border-t border-[var(--border-subtle)]">
