@@ -85,11 +85,36 @@ export function Checkout() {
 
     useEffect(() => {
         loadData();
-        firePixelEvent('PageView');
         if (productId) {
             recordCheckoutVisit(productId);
         }
     }, [productId, planId]);
+
+    // Initializate pixels when they are loaded
+    useEffect(() => {
+        if (pixels.length === 0) return;
+
+        // Facebook Pixel Script
+        if (!(window as any).fbq) {
+            (function (f: any, b: any, e: any, v: any, n?: any, t?: any, s?: any) {
+                if (f.fbq) return; n = f.fbq = function () {
+                    n.callMethod ?
+                        n.callMethod.apply(n, arguments) : n.queue.push(arguments)
+                };
+                if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
+                n.queue = []; t = b.createElement(e); t.async = !0;
+                t.src = v; s = b.getElementsByTagName(e)[0];
+                s.parentNode.insertBefore(t, s)
+            })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
+        }
+
+        pixels.forEach(id => {
+            (window as any).fbq('init', id);
+        });
+
+        firePixelEvent('PageView');
+        firePixelEvent('InitiateCheckout');
+    }, [pixels]);
 
     // Timer countdown
     useEffect(() => {
@@ -220,8 +245,6 @@ export function Checkout() {
 
             const activePixels = pixelsData?.filter((p: { is_active: boolean }) => p.is_active).map((p: { pixel_id: string }) => p.pixel_id) || [];
             setPixels(activePixels);
-
-            firePixelEvent('InitiateCheckout');
         } catch (error) {
             console.error('Error loading checkout data:', error);
         } finally {
@@ -230,9 +253,9 @@ export function Checkout() {
     }
 
     function firePixelEvent(event: string, data?: Record<string, unknown>) {
-        if (typeof window !== 'undefined' && (window as unknown as { fbq?: (...args: unknown[]) => void }).fbq) {
-            pixels.forEach(() => {
-                (window as unknown as { fbq: (...args: unknown[]) => void }).fbq('track', event, data);
+        if (typeof window !== 'undefined' && (window as any).fbq) {
+            pixels.forEach(id => {
+                (window as any).fbq('trackSingle', id, event, data);
             });
         }
     }
@@ -555,55 +578,60 @@ export function Checkout() {
                                         <div
                                             key={bump.id}
                                             onClick={() => setSelectedBump(selectedBump?.id === bump.id ? null : bump)}
-                                            className={`relative p-4 rounded-2xl border-2 cursor-pointer transition-all ${selectedBump?.id === bump.id
-                                                ? 'border-solid bg-emerald-50/30'
+                                            className={`relative p-5 rounded-3xl border-2 cursor-pointer transition-all ${selectedBump?.id === bump.id
+                                                ? 'border-solid shadow-md'
                                                 : 'border-dashed border-gray-200 hover:border-gray-300'
                                                 }`}
                                             style={selectedBump?.id === bump.id ? {
                                                 borderColor: settings.primary_color,
-                                                backgroundColor: `${settings.primary_color}08`
+                                                backgroundColor: `${settings.primary_color}05`
                                             } : undefined}
                                         >
-                                            <div className="flex items-start gap-4">
-                                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${selectedBump?.id === bump.id
-                                                    ? 'bg-emerald-500 border-emerald-500'
-                                                    : 'border-gray-300'
-                                                    }`}
-                                                    style={selectedBump?.id === bump.id ? { backgroundColor: settings.primary_color, borderColor: settings.primary_color } : undefined}
-                                                >
-                                                    {selectedBump?.id === bump.id && (
-                                                        <Check size={12} className="text-white" />
-                                                    )}
-                                                </div>
+                                            <div className="space-y-4">
+                                                {/* Header with Checkbox, Title and Price */}
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${selectedBump?.id === bump.id
+                                                        ? 'bg-emerald-500 border-emerald-500'
+                                                        : 'border-gray-300'
+                                                        }`}
+                                                        style={selectedBump?.id === bump.id ? { backgroundColor: settings.primary_color, borderColor: settings.primary_color } : undefined}
+                                                    >
+                                                        {selectedBump?.id === bump.id && (
+                                                            <Check size={14} className="text-white" />
+                                                        )}
+                                                    </div>
 
-                                                {/* Bump Image */}
-                                                {bump.image_url && (
-                                                    <img
-                                                        src={bump.image_url}
-                                                        alt={bump.name}
-                                                        className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
-                                                    />
-                                                )}
-
-                                                <div className="flex-1">
-                                                    <div className="flex justify-between items-start mb-1">
-                                                        <p className="font-bold text-gray-900 text-sm">{bump.title}</p>
-                                                        <p className="font-bold text-sm whitespace-nowrap ml-2" style={{ color: settings.primary_color }}>
+                                                    <div className="flex-1 flex justify-between items-start">
+                                                        <p className="font-bold text-gray-900 text-base leading-tight">{bump.title}</p>
+                                                        <p className="font-bold text-base whitespace-nowrap ml-2" style={{ color: settings.primary_color }}>
                                                             + {formatPrice(bump.price)}
                                                         </p>
                                                     </div>
+                                                </div>
 
+                                                {/* Large Bump Image */}
+                                                {bump.image_url && (
+                                                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-inner bg-gray-50 border border-gray-100">
+                                                        <img
+                                                            src={bump.image_url}
+                                                            alt={bump.name}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <div className="space-y-3">
                                                     {bump.description && (
-                                                        <p className="text-gray-500 text-xs leading-relaxed whitespace-pre-wrap mt-1">{bump.description}</p>
+                                                        <p className="text-gray-500 text-sm leading-relaxed whitespace-pre-wrap">{bump.description}</p>
                                                     )}
 
-                                                    <div className="mt-3 text-[10px] font-bold uppercase tracking-wider py-2 px-4 rounded-xl inline-block transition-all shadow-sm hover:brightness-110 active:scale-95"
+                                                    <div className="w-full text-center py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-[0.98] hover:brightness-110"
                                                         style={{
                                                             backgroundColor: settings.primary_color,
                                                             color: '#ffffff',
-                                                            boxShadow: `0 4px 12px ${settings.primary_color}25`
+                                                            boxShadow: `0 8px 20px ${settings.primary_color}30`
                                                         }}>
-                                                        {selectedBump?.id === bump.id ? 'ADICIONADO' : (bump.button_text || settings.order_bump_button_text).toUpperCase()}
+                                                        {selectedBump?.id === bump.id ? '✓ ADICIONADO COM SUCESSO' : (bump.button_text || settings.order_bump_button_text).toUpperCase()}
                                                     </div>
                                                 </div>
                                             </div>

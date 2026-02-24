@@ -311,36 +311,45 @@ export function OrderBumpForm() {
                             Prévia (Como aparecerá no Checkout)
                         </label>
                         <div
-                            className="p-4 rounded-xl border-2"
+                            className="p-5 rounded-3xl border-2 border-solid shadow-sm"
                             style={{
                                 borderColor: boxColor,
-                                backgroundColor: `${boxColor}10`
+                                backgroundColor: `${boxColor}05`
                             }}
                         >
-                            <div className="flex gap-3">
-                                {imagePreview && (
-                                    <img src={imagePreview} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" alt="Preview" />
-                                )}
-                                <div className="flex-1">
-                                    <div className="flex justify-between items-start">
-                                        <p className="font-bold text-sm mb-1 text-gray-900">
+                            <div className="space-y-4">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 border-gray-300">
+                                    </div>
+                                    <div className="flex-1 flex justify-between items-start">
+                                        <p className="font-bold text-sm text-gray-900 leading-tight">
                                             {title || 'Título do Order Bump'}
                                         </p>
                                         <p className="font-bold text-sm whitespace-nowrap ml-2" style={{ color: boxColor }}>
                                             + R$ {price || '0,00'}
                                         </p>
                                     </div>
-                                    <p className="text-xs text-gray-500 mb-2 whitespace-pre-wrap leading-relaxed">
+                                </div>
+
+                                {imagePreview && (
+                                    <div className="relative w-full aspect-video rounded-2xl overflow-hidden shadow-inner bg-gray-50 border border-gray-100">
+                                        <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                                    </div>
+                                )}
+
+                                <div className="space-y-3">
+                                    <p className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">
                                         {description || 'Descrição da oferta aparece aqui...'}
                                     </p>
                                     <div
-                                        className="text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-lg inline-block"
+                                        className="w-full text-center py-3 px-4 rounded-xl font-bold text-[10px] uppercase tracking-wider shadow-sm"
                                         style={{
                                             backgroundColor: boxColor,
-                                            color: '#ffffff'
+                                            color: '#ffffff',
+                                            boxShadow: `0 4px 12px ${boxColor}25`
                                         }}
                                     >
-                                        {buttonText || 'Adicionar oferta'}
+                                        {(buttonText || 'Adicionar oferta').toUpperCase()}
                                     </div>
                                 </div>
                             </div>
