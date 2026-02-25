@@ -29,7 +29,7 @@ export default async function handler(
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_2GX9QH7z_GMqhYyDt2tvVDfArd1H1h2Rg';
 
     if (!RESEND_API_KEY) {
         return res.status(500).json({ error: 'Server configuration error: Missing API Key' });
@@ -43,7 +43,7 @@ export default async function handler(
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                from: 'SellPay <noreply@sellpay.com.br>',
+                from: 'SellPay <suporte@email.clonefyia.com>',
                 to,
                 subject,
                 html,

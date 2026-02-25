@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, User, Mail, Phone, ShoppingCart, AlertTriangle, Send } from 'lucide-react';
+import { X, User, Mail, Phone, ShoppingCart, AlertTriangle, Send, Copy } from 'lucide-react';
 import { Button, Badge } from '../ui';
 import { sendPixExpiredEmail, sendAbandonedCartEmail } from '../../lib/resend';
 import { formatPrice } from '../../lib/openpix';
@@ -13,8 +13,20 @@ interface OrderModalProps {
 
 export function OrderModal({ order, onClose }: OrderModalProps) {
     const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [copiedPix, setCopiedPix] = useState(false);
 
     if (!order) return null;
+
+    async function handleCopyPix() {
+        if (!order?.pix_copy_paste) return;
+        try {
+            await navigator.clipboard.writeText(order.pix_copy_paste);
+            setCopiedPix(true);
+            setTimeout(() => setCopiedPix(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy', err);
+        }
+    }
 
     async function handleSendRecovery() {
         if (!order) return;
@@ -148,33 +160,58 @@ export function OrderModal({ order, onClose }: OrderModalProps) {
                         </div>
                     </div>
 
-                    {/* Actions for Pending/Expired */}
+                    {/* Actions & PIX Information for Pending/Expired */}
                     {(order.status === 'PENDING' || order.status === 'EXPIRED') && (
-                        <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
-                            <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                <AlertTriangle size={14} />
-                                AÇÕES DE RECUPERAÇÃO
-                            </h3>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Button
-                                    onClick={handleSendRecovery}
-                                    isLoading={isSendingEmail}
-                                    size="sm"
-                                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                                    icon={<Send size={16} />}
-                                >
-                                    Enviar Recuperação
-                                </Button>
-                                <Button
-                                    onClick={handleSendExpired}
-                                    isLoading={isSendingEmail}
-                                    size="sm"
-                                    variant="secondary"
-                                    className="border-amber-200 text-amber-700 hover:bg-amber-100"
-                                    icon={<AlertTriangle size={16} />}
-                                >
-                                    Pix Expirado
-                                </Button>
+                        <div className="space-y-4">
+                            {/* PIX Copy section */}
+                            {order.pix_copy_paste && (
+                                <div className="bg-[var(--bg-tertiary)] rounded-2xl p-5 border border-[var(--border-subtle)]">
+                                    <h3 className="text-xs font-black text-[var(--text-tertiary)] uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        PIX COPIA E COLA
+                                    </h3>
+                                    <div className="flex flex-col gap-3">
+                                        <div className="bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-3 text-sm text-[var(--text-primary)] font-mono break-all max-h-24 overflow-y-auto">
+                                            {order.pix_copy_paste}
+                                        </div>
+                                        <Button
+                                            onClick={handleCopyPix}
+                                            variant="secondary"
+                                            className="w-full"
+                                            icon={<Copy size={16} />}
+                                        >
+                                            {copiedPix ? 'Copiado!' : 'Copiar Código PIX'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Recovery Actions */}
+                            <div className="bg-amber-50 rounded-2xl p-5 border border-amber-100">
+                                <h3 className="text-xs font-black text-amber-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                    <AlertTriangle size={14} />
+                                    AÇÕES DE RECUPERAÇÃO
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <Button
+                                        onClick={handleSendRecovery}
+                                        isLoading={isSendingEmail}
+                                        size="sm"
+                                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                                        icon={<Send size={16} />}
+                                    >
+                                        Enviar Recuperação
+                                    </Button>
+                                    <Button
+                                        onClick={handleSendExpired}
+                                        isLoading={isSendingEmail}
+                                        size="sm"
+                                        variant="secondary"
+                                        className="border-amber-200 text-amber-700 hover:bg-amber-100"
+                                        icon={<AlertTriangle size={16} />}
+                                    >
+                                        Pix Expirado
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     )}

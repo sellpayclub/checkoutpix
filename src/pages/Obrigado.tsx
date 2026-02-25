@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Check, Download, ExternalLink, Facebook as FbIcon } from 'lucide-react';
+import { Check, Download, ExternalLink, Facebook as FbIcon, PlaySquare } from 'lucide-react';
 import { Button } from '../components/ui';
-import { getOrderByCorrelationId, getPixels } from '../lib/supabase';
+import { getOrderByCorrelationId, getPixels, getGooglePixels } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
 import type { Order } from '../types';
 
@@ -21,6 +21,7 @@ export function Obrigado() {
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [pixels, setPixels] = useState<string[]>([]);
+    const [googlePixels, setGooglePixels] = useState<string[]>([]);
     const [resent, setResent] = useState(false);
 
     useEffect(() => {
@@ -29,9 +30,15 @@ export function Obrigado() {
 
     async function loadPixels() {
         try {
-            const pixelsData = await getPixels();
+            const [pixelsData, googlePixelsData] = await Promise.all([
+                getPixels(),
+                getGooglePixels()
+            ]);
             const activePixels = pixelsData?.filter((p: any) => p.is_active).map((p: any) => p.pixel_id) || [];
             setPixels(activePixels);
+
+            const activeGooglePixels = googlePixelsData?.filter((p: any) => p.is_active).map((p: any) => p.pixel_id) || [];
+            setGooglePixels(activeGooglePixels);
         } catch (error) {
             console.error('Error loading pixels:', error);
         }
@@ -64,6 +71,34 @@ export function Obrigado() {
         });
     }, [pixels]);
 
+    // Initialize Google Ads Pixels
+    useEffect(() => {
+        if (googlePixels.length === 0) return;
+
+        if (!(window as any).dataLayer) {
+            (window as any).dataLayer = (window as any).dataLayer || [];
+            (window as any).gtag = function () {
+                (window as any).dataLayer.push(arguments);
+            };
+            (window as any).gtag('js', new Date());
+
+            const script = document.createElement('script');
+            script.src = `https://www.googletagmanager.com/gtag/js?id=${googlePixels[0]}`;
+            script.async = true;
+            document.head.appendChild(script);
+        }
+
+        googlePixels.forEach(id => {
+            (window as any).gtag('config', id);
+        });
+
+        // Fire page_view
+        const tracking = getTrackingParameters();
+        if (typeof window !== 'undefined' && (window as any).gtag) {
+            (window as any).gtag('event', 'page_view', tracking as any);
+        }
+    }, [googlePixels]);
+
     function firePixelEvent(event: string, data?: Record<string, unknown>) {
         if (typeof window !== 'undefined' && window.fbq) {
             pixels.forEach(id => {
@@ -79,6 +114,18 @@ export function Obrigado() {
             currency: 'BRL',
             content_name: order.product?.name
         });
+
+        if (googlePixels.length > 0 && (window as any).gtag) {
+            googlePixels.forEach(id => {
+                (window as any).gtag('event', 'conversion', {
+                    send_to: id,
+                    value: order.amount / 100,
+                    currency: 'BRL',
+                    transaction_id: order.correlation_id
+                });
+            });
+        }
+
         setResent(true);
         setTimeout(() => setResent(false), 3000);
     }
@@ -123,7 +170,26 @@ export function Obrigado() {
                 console.log('[Pixel] Purchase already tracked for:', correlationId);
             }
         }
-    }, [order, pixels]);
+
+        // Google Ads Track Purchase
+        if (order && googlePixels.length > 0 && (window as any).gtag) {
+            const correlationId = order.correlation_id;
+            const googleStorageKey = `tracked_google_purchase_${correlationId}`;
+
+            if (!localStorage.getItem(googleStorageKey)) {
+                googlePixels.forEach(id => {
+                    (window as any).gtag('event', 'conversion', {
+                        send_to: id,
+                        value: order.amount / 100,
+                        currency: 'BRL',
+                        transaction_id: correlationId
+                    });
+                });
+                localStorage.setItem(googleStorageKey, 'true');
+                console.log('[Google Pixel] Purchase tracking fired in Thank You page');
+            }
+        }
+    }, [order, pixels, googlePixels]);
 
     async function loadOrder() {
         if (!correlationId) {
@@ -245,9 +311,11 @@ export function Obrigado() {
                             }`}
                     >
                         {resent ? (
-                            <><Check size={12} /> Evento Enviado!</>
+                            <><Check size={12} /> Eventos Enviados!</>
                         ) : (
-                            <><FbIcon size={12} /> Reenviar Pixel de Compra</>
+                            <div className="flex items-center gap-1.5 pt-1 pb-1">
+                                <FbIcon size={12} /> <PlaySquare size={12} className="text-orange-500" /> Reenviar Eventos de Compra
+                            </div>
                         )}
                     </button>
                     {!resent && (

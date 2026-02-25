@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Mail, Phone, Check, Copy, Shield, Lock, Clock, DollarSign, CreditCard, Sparkles, Facebook as FbIcon } from 'lucide-react';
 import { Button } from '../components/ui';
-import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderStatus, getOrderBumps, recordCheckoutVisit } from '../lib/supabase';
+import { getProduct, getPixels, getCheckoutSettings, createOrder, updateOrderStatus, getOrderBumps, recordCheckoutVisit, getGooglePixels } from '../lib/supabase';
 import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, cleanPhone } from '../lib/openpix';
 import { sendPixGeneratedEmail, sendPurchaseApprovedEmail } from '../lib/resend';
 import { formatTimer, isValidEmail, isValidPhone, isValidCPF, formatCPF, formatPhoneMask, copyToClipboard } from '../lib/utils';
@@ -56,6 +56,7 @@ export function Checkout() {
         order_bump_button_text: 'Adicionar oferta',
     });
     const [pixels, setPixels] = useState<string[]>([]);
+    const [googlePixels, setGooglePixels] = useState<string[]>([]);
 
     // Form state
     const [form, setForm] = useState<CheckoutFormData>({ name: '', email: '', phone: '', cpf: '' });
@@ -143,6 +144,54 @@ export function Checkout() {
         }
     }, [pixels, product]);
 
+    // Initialize Google Ads Pixels
+    const googleTrackedRef = useRef({ pageView: false, beginCheckout: false });
+
+    useEffect(() => {
+        if (googlePixels.length === 0) return;
+
+        // Google gtag.js initialization
+        if (!(window as any).dataLayer) {
+            (window as any).dataLayer = (window as any).dataLayer || [];
+            (window as any).gtag = function () {
+                (window as any).dataLayer.push(arguments);
+            };
+            (window as any).gtag('js', new Date());
+
+            // Add the script dynamically
+            const script = document.createElement('script');
+            script.src = `https://www.googletagmanager.com/gtag/js?id=${googlePixels[0]}`;
+            script.async = true;
+            document.head.appendChild(script);
+        }
+
+        // Configure all pixels
+        googlePixels.forEach(id => {
+            (window as any).gtag('config', id);
+        });
+
+        const tracking = getTrackingParameters();
+
+        if (!googleTrackedRef.current.pageView) {
+            (window as any).gtag('event', 'page_view', tracking as any);
+            googleTrackedRef.current.pageView = true;
+        }
+
+        if (!googleTrackedRef.current.beginCheckout && product) {
+            (window as any).gtag('event', 'begin_checkout', {
+                value: product.plan.price / 100,
+                currency: 'BRL',
+                items: [{
+                    id: product.id,
+                    name: product.name,
+                    quantity: 1,
+                    price: product.plan.price / 100
+                }]
+            });
+            googleTrackedRef.current.beginCheckout = true;
+        }
+    }, [googlePixels, product]);
+
     // Timer countdown
     useEffect(() => {
         if (!settings.timer_enabled || timeLeft <= 0) return;
@@ -212,6 +261,23 @@ export function Checkout() {
                             });
                             localStorage.setItem(storageKey, 'true');
                             console.log('[Pixel] Purchase tracking fired with Advanced Matching');
+                        }
+
+                        // Fire Google Ads conversion
+                        const googleStorageKey = `tracked_google_purchase_${correlationId}`;
+                        if (!localStorage.getItem(googleStorageKey)) {
+                            googlePixels.forEach(id => {
+                                if (typeof window !== 'undefined' && (window as any).gtag) {
+                                    (window as any).gtag('event', 'conversion', {
+                                        send_to: id,
+                                        value: total / 100,
+                                        currency: 'BRL',
+                                        transaction_id: correlationId
+                                    });
+                                }
+                            });
+                            localStorage.setItem(googleStorageKey, 'true');
+                            console.log('[Google Pixel] Purchase tracking fired');
                         }
                     }
 
@@ -299,7 +365,7 @@ export function Checkout() {
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
         };
-    }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate, trackingParams, planId, pixels]);
+    }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate, trackingParams, planId, pixels, googlePixels]);
 
     async function loadData() {
         if (!productId || !planId) {
@@ -308,11 +374,12 @@ export function Checkout() {
         }
 
         try {
-            const [productData, settingsData, pixelsData, bumpsData] = await Promise.all([
+            const [productData, settingsData, pixelsData, bumpsData, googlePixelsData] = await Promise.all([
                 getProduct(productId),
                 getCheckoutSettings(),
                 getPixels(),
                 getOrderBumps(),
+                getGooglePixels(),
             ]);
 
             if (!productData) {
@@ -365,6 +432,9 @@ export function Checkout() {
 
             const activePixels = pixelsData?.filter((p: { is_active: boolean }) => p.is_active).map((p: { pixel_id: string }) => p.pixel_id) || [];
             setPixels(activePixels);
+
+            const activeGooglePixels = googlePixelsData?.filter((p: { is_active: boolean }) => p.is_active).map((p: { pixel_id: string }) => p.pixel_id) || [];
+            setGooglePixels(activeGooglePixels);
         } catch (error) {
             console.error('Error loading checkout data:', error);
         } finally {

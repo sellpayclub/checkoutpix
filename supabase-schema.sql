@@ -104,6 +104,18 @@ CREATE TABLE IF NOT EXISTS facebook_pixels (
 );
 
 -- ============================================
+-- Google Pixels
+-- ============================================
+CREATE TABLE IF NOT EXISTS google_pixels (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  pixel_id VARCHAR(50) NOT NULL,
+  name VARCHAR(255),
+  is_active BOOLEAN DEFAULT TRUE,
+  events JSONB DEFAULT '["PageView", "Purchase"]',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ============================================
 -- Checkout Settings
 -- ============================================
 CREATE TABLE IF NOT EXISTS checkout_settings (
@@ -168,6 +180,7 @@ ALTER TABLE order_bumps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_order_bumps ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE facebook_pixels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE google_pixels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checkout_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE short_links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE checkout_visits ENABLE ROW LEVEL SECURITY;
@@ -181,6 +194,7 @@ CREATE POLICY "Allow all for order_bumps" ON order_bumps FOR ALL USING (true) WI
 CREATE POLICY "Allow all for product_order_bumps" ON product_order_bumps FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for orders" ON orders FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for facebook_pixels" ON facebook_pixels FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all for google_pixels" ON google_pixels FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for checkout_settings" ON checkout_settings FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for short_links" ON short_links FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all for checkout_visits" ON checkout_visits FOR ALL USING (true) WITH CHECK (true);

@@ -82,6 +82,16 @@ export interface FacebookPixel {
     created_at: string;
 }
 
+// Google Pixel types
+export interface GooglePixel {
+    id: string;
+    pixel_id: string;
+    name: string | null;
+    is_active: boolean;
+    events: string[];
+    created_at: string;
+}
+
 // Checkout Settings types
 export interface CheckoutSettings {
     id: string;

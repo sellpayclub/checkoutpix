@@ -83,6 +83,15 @@ export interface Pixel {
     created_at: string;
 }
 
+export interface GooglePixel {
+    id: string;
+    pixel_id: string;
+    name: string | null;
+    is_active: boolean;
+    events: string[];
+    created_at: string;
+}
+
 export interface CheckoutSettings {
     id: string;
     timer_enabled: boolean;
@@ -626,6 +635,51 @@ export async function updatePixel(id: string, updates: Partial<Pixel>): Promise<
 
 export async function deletePixel(id: string): Promise<void> {
     const { error } = await supabase.from('facebook_pixels').delete().eq('id', id);
+    if (error) throw new Error(error.message);
+}
+
+// ============ Google Pixels ============
+
+export async function getGooglePixels(): Promise<GooglePixel[]> {
+    const { data, error } = await supabase
+        .from('google_pixels')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+    if (error) return [];
+    return data;
+}
+
+export async function createGooglePixel(pixel: {
+    pixel_id: string;
+    name?: string;
+    events?: string[];
+}): Promise<GooglePixel> {
+    const { data, error } = await supabase
+        .from('google_pixels')
+        .insert(pixel)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export async function updateGooglePixel(id: string, updates: Partial<GooglePixel>): Promise<GooglePixel> {
+    const { data, error } = await supabase
+        .from('google_pixels')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+export async function deleteGooglePixel(id: string): Promise<void> {
+    const { error } = await supabase.from('google_pixels').delete().eq('id', id);
     if (error) throw new Error(error.message);
 }
 
