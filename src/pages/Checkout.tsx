@@ -220,7 +220,8 @@ export function Checkout() {
     useEffect(() => {
         if (!pixData?.correlationId || isPaid) return;
 
-        pollingRef.current = setInterval(async () => {
+        // Core check function - extracted so it can be called by both interval and visibility change
+        const checkPaymentStatus = async () => {
             try {
                 const status = await getChargeStatus(pixData.correlationId);
                 if (status.status === 'COMPLETED') {
@@ -359,10 +360,25 @@ export function Checkout() {
             } catch (error) {
                 console.log('Verificando pagamento...');
             }
-        }, 5000);
+        };
+
+        // Regular polling every 5 seconds
+        pollingRef.current = setInterval(checkPaymentStatus, 5000);
+
+        // CRITICAL: When tab becomes visible again, check immediately
+        // Chrome throttles setInterval to 1x/min for background tabs,
+        // so this ensures we catch late payments as soon as the user returns.
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                console.log('[Polling] Tab visible again, checking payment immediately...');
+                checkPaymentStatus();
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
             if (pollingRef.current) clearInterval(pollingRef.current);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [pixData?.correlationId, isPaid, calculateTotalFromRefs, navigate, trackingParams, planId, pixels, googlePixels]);
 
