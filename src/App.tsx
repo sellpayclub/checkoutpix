@@ -18,6 +18,7 @@ import { Configuracoes } from './pages/Configuracoes';
 import { Checkout } from './pages/Checkout';
 import { Obrigado } from './pages/Obrigado';
 import { ShortLinkRedirect } from './pages/ShortLinkRedirect';
+import { SalesToast } from './components/dashboard/SalesToast';
 
 // Dashboard Layout with Sidebar
 function DashboardLayout() {
@@ -32,6 +33,7 @@ function DashboardLayout() {
       >
         <Outlet />
       </main>
+      <SalesToast />
     </div>
   );
 }
