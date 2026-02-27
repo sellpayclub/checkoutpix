@@ -128,29 +128,28 @@ export interface WooviAccount {
 }
 
 /**
- * Get company info from Woovi (includes main balance)
+ * Get company info from Woovi via server proxy (avoids CORS)
  */
 export async function getCompanyInfo(): Promise<WooviCompany | null> {
     try {
-        const response = await fetch(`${OPENPIX_API_URL}/company`, {
+        const response = await fetch('/api/woovi?action=company', {
             method: 'GET',
             headers: {
-                'Authorization': OPENPIX_APP_ID,
                 'Content-Type': 'application/json',
             },
         });
 
         if (!response.ok) {
-            console.error('Failed to get company info');
+            console.error('Failed to get company info:', response.status);
             return null;
         }
 
         const data = await response.json();
         return {
-            name: data.company.name,
-            taxID: data.company.taxID?.taxID || data.company.taxID,
-            balance: data.company.balance || 0,
-            withdrawBalance: data.company.withdrawBalance || 0,
+            name: data.company?.name || '',
+            taxID: data.company?.taxID?.taxID || data.company?.taxID || '',
+            balance: data.company?.balance || 0,
+            withdrawBalance: data.company?.withdrawBalance || 0,
         };
     } catch (error) {
         console.error('Error getting company info:', error);
@@ -159,7 +158,7 @@ export async function getCompanyInfo(): Promise<WooviCompany | null> {
 }
 
 /**
- * Get accounts list from Woovi
+ * Get accounts list from Woovi (currently unused but kept for future use)
  */
 export async function getAccounts(): Promise<WooviAccount[]> {
     try {
@@ -189,8 +188,7 @@ export async function getAccounts(): Promise<WooviAccount[]> {
 }
 
 /**
- * Request a withdraw from account
- * Note: This requires proper permissions on the Woovi account
+ * Request a withdraw via server proxy (avoids CORS)
  */
 export async function requestWithdraw(accountId: string, valueInCents: number): Promise<{
     success: boolean;
@@ -198,19 +196,19 @@ export async function requestWithdraw(accountId: string, valueInCents: number): 
     withdrawId?: string;
 }> {
     try {
-        const response = await fetch(`${OPENPIX_API_URL}/account/${accountId}/withdraw`, {
+        const response = await fetch('/api/woovi?action=withdraw', {
             method: 'POST',
             headers: {
-                'Authorization': OPENPIX_APP_ID,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+                accountId,
                 value: valueInCents,
             }),
         });
 
         if (!response.ok) {
-            const error = await response.json();
+            const error = await response.json().catch(() => ({ message: 'Falha ao solicitar saque' }));
             return {
                 success: false,
                 message: error.message || 'Falha ao solicitar saque. Verifique se você tem saldo e permissões.',
