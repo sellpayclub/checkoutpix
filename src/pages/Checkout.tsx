@@ -549,6 +549,7 @@ export function Checkout() {
                 pix_copy_paste: chargeResponse.charge.brCode,
                 pix_charge_id: chargeResponse.charge.globalID,
                 order_bump_id: selectedBumps.length > 0 ? selectedBumps[0].id : undefined,
+                tracking_params: trackingParams,
             });
 
             // Send PIX generated email

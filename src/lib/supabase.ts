@@ -549,6 +549,7 @@ export async function createOrder(order: {
     pix_copy_paste?: string;
     pix_charge_id?: string;
     order_bump_id?: string;
+    tracking_params?: any;
 }): Promise<Order> {
     const { data, error } = await supabase
         .from('orders')

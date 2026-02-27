@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS orders (
   pix_copy_paste TEXT,
   pix_charge_id VARCHAR(255),
   order_bump_id UUID REFERENCES order_bumps(id),
+  tracking_params JSONB, -- UTM parameters for attribution
   paid_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
