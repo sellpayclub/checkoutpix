@@ -127,20 +127,27 @@ export async function sendPurchaseApprovedEmail(data: {
     customerName: string;
     productName: string;
     amount: number;
-    accessUrl?: string;
-    downloadUrl?: string;
+    deliverables?: { type: 'file' | 'redirect'; file_url: string | null; redirect_url: string | null }[];
 }): Promise<boolean> {
-    const accessButton = data.accessUrl ? `
-        <a href="${data.accessUrl}" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; margin-top: 24px;">
-            Acessar Conteúdo
-        </a>
-    ` : '';
+    const deliverablesHtml = data.deliverables && data.deliverables.length > 0
+        ? data.deliverables.map((d, index) => {
+            const label = d.type === 'file' ? 'Baixar Produto' : 'Acessar Conteúdo';
+            const url = d.type === 'file' ? d.file_url : d.redirect_url;
+            if (!url) return '';
 
-    const downloadButton = data.downloadUrl ? `
-        <a href="${data.downloadUrl}" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 16px; margin-top: 24px;">
-            Baixar Produto
-        </a>
-    ` : '';
+            return `
+                <div style="margin-top: 16px;">
+                    <a href="${url}" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 15px; width: 80%;">
+                        ${label} ${data.deliverables!.length > 1 ? (index + 1) : ''}
+                    </a>
+                </div>
+            `;
+        }).join('')
+        : `
+            <p style="color: #9ca3af; font-size: 14px; margin-top: 24px;">
+                Em breve você receberá mais informações sobre seu acesso.
+            </p>
+        `;
 
     const html = `
 <!DOCTYPE html>
@@ -185,14 +192,10 @@ export async function sendPurchaseApprovedEmail(data: {
                     </div>
                 </div>
                 
-                ${accessButton}
-                ${downloadButton}
-                
-                ${!data.accessUrl && !data.downloadUrl ? `
-                    <p style="color: #9ca3af; font-size: 14px; margin-top: 24px;">
-                        Em breve você receberá mais informações sobre seu acesso.
-                    </p>
-                ` : ''}
+                <div style="margin-top: 32px;">
+                    <h3 style="color: #374151; font-size: 16px; font-weight: 700; margin-bottom: 8px;">Seu Acesso:</h3>
+                    ${deliverablesHtml}
+                </div>
             </div>
             
             <!-- Footer -->

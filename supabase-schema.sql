@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS facebook_pixels (
 CREATE TABLE IF NOT EXISTS google_pixels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   pixel_id VARCHAR(50) NOT NULL,
+  conversion_label VARCHAR(100),
   name VARCHAR(255),
   is_active BOOLEAN DEFAULT TRUE,
   events JSONB DEFAULT '["PageView", "Purchase"]',
@@ -234,6 +235,11 @@ BEGIN
 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'checkout_settings' AND column_name = 'webhook_events') THEN
         ALTER TABLE checkout_settings ADD COLUMN webhook_events JSONB DEFAULT '["sale_generated", "sale_approved"]';
+    END IF;
+
+    -- Add conversion_label to google_pixels if not exists
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'google_pixels' AND column_name = 'conversion_label') THEN
+        ALTER TABLE google_pixels ADD COLUMN conversion_label VARCHAR(100);
     END IF;
 END $$;
 

@@ -29,18 +29,22 @@ export default async function handler(
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_2GX9QH7z_GMqhYyDt2tvVDfArd1H1h2Rg';
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
     if (!RESEND_API_KEY) {
+        console.error('RESEND_API_KEY is missing from environment variables');
         return res.status(500).json({ error: 'Server configuration error: Missing API Key' });
     }
 
     try {
+        console.log(`Attempting to send email to: ${to}, Subject: ${subject}`);
+
         const response = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${RESEND_API_KEY}`,
                 'Content-Type': 'application/json',
+                'X-Source': 'SellPay-Checkout'
             },
             body: JSON.stringify({
                 from: 'SellPay <suporte@email.clonefyia.com>',
@@ -50,12 +54,17 @@ export default async function handler(
             }),
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(JSON.stringify(errorData));
+            console.error('Resend API Error:', JSON.stringify(data, null, 2));
+            return res.status(response.status).json({
+                error: 'Resend API Error',
+                details: data
+            });
         }
 
-        const data = await response.json();
+        console.log('Email sent successfully:', data.id);
         return res.status(200).json(data);
 
     } catch (error) {

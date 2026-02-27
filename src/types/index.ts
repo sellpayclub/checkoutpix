@@ -89,6 +89,7 @@ export interface GooglePixel {
     name: string | null;
     is_active: boolean;
     events: string[];
+    conversion_label: string | null;
     created_at: string;
 }
 

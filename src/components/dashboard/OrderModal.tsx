@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, User, Mail, Phone, ShoppingCart, AlertTriangle, Send, Copy } from 'lucide-react';
+import { X, User, Mail, Phone, ShoppingCart, AlertTriangle, Send, Copy, CheckCircle2 } from 'lucide-react';
 import { Button, Badge } from '../ui';
 import { sendPixExpiredEmail, sendAbandonedCartEmail } from '../../lib/resend';
 import { formatPrice } from '../../lib/openpix';
@@ -63,6 +63,27 @@ export function OrderModal({ order, onClose }: OrderModalProps) {
                 checkoutUrl
             });
             alert('Email de Pix expirado enviado com sucesso!');
+        } catch (error) {
+            console.error('Error sending email:', error);
+            alert('Erro ao enviar email');
+        } finally {
+            setIsSendingEmail(false);
+        }
+    }
+
+    async function handleResendAccess() {
+        if (!order) return;
+        setIsSendingEmail(true);
+        try {
+            const { sendPurchaseApprovedEmail } = await import('../../lib/resend');
+            await sendPurchaseApprovedEmail({
+                customerEmail: order.customer_email,
+                customerName: order.customer_name,
+                productName: order.product?.name || 'Produto',
+                amount: order.amount,
+                deliverables: order.product?.product_deliverables || []
+            });
+            alert('Email de acesso reenviado com sucesso!');
         } catch (error) {
             console.error('Error sending email:', error);
             alert('Erro ao enviar email');
@@ -213,6 +234,25 @@ export function OrderModal({ order, onClose }: OrderModalProps) {
                                     </Button>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Approved Actions */}
+                    {order.status === 'APPROVED' && (
+                        <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100">
+                            <h3 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <CheckCircle2 size={14} />
+                                AÇÕES DE ENTREGA
+                            </h3>
+                            <Button
+                                onClick={handleResendAccess}
+                                isLoading={isSendingEmail}
+                                size="sm"
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                                icon={<Send size={16} />}
+                            >
+                                Reenviar Acesso ao Produto
+                            </Button>
                         </div>
                     )}
                 </div>

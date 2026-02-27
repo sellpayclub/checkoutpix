@@ -89,6 +89,7 @@ export interface GooglePixel {
     name: string | null;
     is_active: boolean;
     events: string[];
+    conversion_label: string | null;
     created_at: string;
 }
 
@@ -357,28 +358,24 @@ export async function deleteProductPlan(id: string): Promise<void> {
 
 // ============ Product Deliverables ============
 
-export async function upsertDeliverable(deliverable: {
-    product_id: string;
-    file_url?: string;
-    redirect_url?: string;
-    type: 'file' | 'redirect';
-}): Promise<Deliverable> {
-    // Delete existing deliverables for this product (assuming 1 per product based on previous logic, 
-    // or we can append. The previous logic seemed to replace the list with a single item array)
-    await supabase.from('product_deliverables').delete().eq('product_id', deliverable.product_id);
+export async function syncDeliverables(productId: string, deliverables: Omit<Deliverable, 'id' | 'product_id'>[]): Promise<Deliverable[]> {
+    // Delete existing deliverables for this product
+    await supabase.from('product_deliverables').delete().eq('product_id', productId);
+
+    if (deliverables.length === 0) return [];
 
     const { data, error } = await supabase
         .from('product_deliverables')
-        .insert({
-            product_id: deliverable.product_id,
-            file_url: deliverable.file_url,
-            redirect_url: deliverable.redirect_url,
-            type: deliverable.type
-        })
-        .select()
-        .single();
+        .insert(deliverables.map(d => ({
+            ...d,
+            product_id: productId
+        })))
+        .select();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+        console.error('Error syncing deliverables:', error);
+        throw new Error(error.message);
+    }
     return data;
 }
 
@@ -655,6 +652,7 @@ export async function createGooglePixel(pixel: {
     pixel_id: string;
     name?: string;
     events?: string[];
+    conversion_label?: string;
 }): Promise<GooglePixel> {
     const { data, error } = await supabase
         .from('google_pixels')

@@ -15,7 +15,9 @@ export function Pixels() {
     const [newPixelName, setNewPixelName] = useState('');
     const [isAdding, setIsAdding] = useState(false);
 
+    // Form state (Google)
     const [newGooglePixelId, setNewGooglePixelId] = useState('');
+    const [newGooglePixelConversionLabel, setNewGooglePixelConversionLabel] = useState('');
     const [newGooglePixelName, setNewGooglePixelName] = useState('');
     const [isAddingGoogle, setIsAddingGoogle] = useState(false);
 
@@ -115,11 +117,13 @@ export function Pixels() {
         try {
             const pixel = await createGooglePixel({
                 pixel_id: newGooglePixelId.trim(),
+                conversion_label: newGooglePixelConversionLabel.trim() || undefined,
                 name: newGooglePixelName.trim() || undefined,
                 events: ['PageView', 'Purchase'],
             });
             setGooglePixels([pixel, ...googlePixels]);
             setNewGooglePixelId('');
+            setNewGooglePixelConversionLabel('');
             setNewGooglePixelName('');
         } catch (error) {
             console.error('Error adding Google pixel:', error);
@@ -320,6 +324,13 @@ export function Pixels() {
                     </div>
                     <div className="flex-1 min-w-[200px]">
                         <Input
+                            placeholder="Rótulo de Conversão (ex: XyZ123)"
+                            value={newGooglePixelConversionLabel}
+                            onChange={(e) => setNewGooglePixelConversionLabel(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                        <Input
                             placeholder="Nome (opcional)"
                             value={newGooglePixelName}
                             onChange={(e) => setNewGooglePixelName(e.target.value)}
@@ -339,7 +350,9 @@ export function Pixels() {
                     <p className="text-sm text-orange-700">
                         Insira o ID de Acompanhamento no formato:
                         <br />
-                        <strong>AW-123456789</strong> (inclua o AW-) para conversões no Google Ads.
+                        <strong>AW-123456789</strong> (inclua o AW-).
+                        <br />
+                        Insira também o <strong>Rótulo de Conversão</strong> (a parte que vem depois da barra na tag de evento de compra).
                     </p>
                 </div>
             </Card>
@@ -365,7 +378,10 @@ export function Pixels() {
                                         <h3 className="font-semibold text-[var(--text-primary)]">
                                             {pixel.name || `Tag ${pixel.pixel_id.slice(-4)}`}
                                         </h3>
-                                        <p className="text-sm text-gray-500 font-mono">{pixel.pixel_id}</p>
+                                        <p className="text-sm text-gray-500 font-mono">
+                                            {pixel.pixel_id}
+                                            {pixel.conversion_label && ` / ${pixel.conversion_label}`}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">

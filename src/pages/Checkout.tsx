@@ -7,7 +7,7 @@ import { createPixCharge, getChargeStatus, generateCorrelationId, formatPrice, c
 import { sendPixGeneratedEmail, sendPurchaseApprovedEmail } from '../lib/resend';
 import { formatTimer, isValidEmail, isValidPhone, isValidCPF, formatCPF, formatPhoneMask, copyToClipboard } from '../lib/utils';
 import { sendToUtmify, getTrackingParameters, getCurrentDateTime, getUserIP } from '../lib/utmify';
-import type { CheckoutFormData, ProductPlan } from '../types';
+import type { CheckoutFormData, ProductPlan, GooglePixel } from '../types';
 
 // Logo SellPay default
 const SELLPAY_LOGO = 'https://xyzgvsuttwrvbyyxdppq.supabase.co/storage/v1/object/public/logos/logo%20sellpay.png';
@@ -56,7 +56,7 @@ export function Checkout() {
         order_bump_button_text: 'Adicionar oferta',
     });
     const [pixels, setPixels] = useState<string[]>([]);
-    const [googlePixels, setGooglePixels] = useState<string[]>([]);
+    const [googlePixels, setGooglePixels] = useState<GooglePixel[]>([]);
 
     // Form state
     const [form, setForm] = useState<CheckoutFormData>({ name: '', email: '', phone: '', cpf: '' });
@@ -160,14 +160,14 @@ export function Checkout() {
 
             // Add the script dynamically
             const script = document.createElement('script');
-            script.src = `https://www.googletagmanager.com/gtag/js?id=${googlePixels[0]}`;
+            script.src = `https://www.googletagmanager.com/gtag/js?id=${googlePixels[0].pixel_id}`;
             script.async = true;
             document.head.appendChild(script);
         }
 
         // Configure all pixels
-        googlePixels.forEach(id => {
-            (window as any).gtag('config', id);
+        googlePixels.forEach(pixel => {
+            (window as any).gtag('config', pixel.pixel_id);
         });
 
         const tracking = getTrackingParameters();
@@ -266,10 +266,11 @@ export function Checkout() {
                         // Fire Google Ads conversion
                         const googleStorageKey = `tracked_google_purchase_${correlationId}`;
                         if (!localStorage.getItem(googleStorageKey)) {
-                            googlePixels.forEach(id => {
+                            googlePixels.forEach(pixel => {
                                 if (typeof window !== 'undefined' && (window as any).gtag) {
+                                    const sendTo = pixel.conversion_label ? `${pixel.pixel_id}/${pixel.conversion_label}` : pixel.pixel_id;
                                     (window as any).gtag('event', 'conversion', {
-                                        send_to: id,
+                                        send_to: sendTo,
                                         value: total / 100,
                                         currency: 'BRL',
                                         transaction_id: correlationId
@@ -326,14 +327,12 @@ export function Checkout() {
 
                     // Send purchase approved email
                     if (currentProduct) {
-                        const deliverable = (currentProduct as any).deliverables?.[0];
                         await sendPurchaseApprovedEmail({
                             customerEmail: currentForm.email,
                             customerName: currentForm.name,
                             productName: currentProduct.name,
                             amount: total,
-                            accessUrl: deliverable?.redirect_url || undefined,
-                            downloadUrl: deliverable?.file_url || undefined,
+                            deliverables: (currentProduct as any).deliverables || [],
                         });
                     }
 
@@ -433,7 +432,7 @@ export function Checkout() {
             const activePixels = pixelsData?.filter((p: { is_active: boolean }) => p.is_active).map((p: { pixel_id: string }) => p.pixel_id) || [];
             setPixels(activePixels);
 
-            const activeGooglePixels = googlePixelsData?.filter((p: { is_active: boolean }) => p.is_active).map((p: { pixel_id: string }) => p.pixel_id) || [];
+            const activeGooglePixels = googlePixelsData?.filter((p: GooglePixel) => p.is_active) || [];
             setGooglePixels(activeGooglePixels);
         } catch (error) {
             console.error('Error loading checkout data:', error);

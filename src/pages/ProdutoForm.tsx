@@ -6,7 +6,7 @@ import {
     getProduct,
     createProduct,
     updateProduct,
-    upsertDeliverable,
+    syncDeliverables,
     uploadFile,
     getOrderBumps,
 } from '../lib/supabase';
@@ -38,9 +38,13 @@ export function ProdutoForm() {
     const [plans, setPlans] = useState<PlanForm[]>([
         { name: 'Plano Único', price: '', isRecurring: false, recurringInterval: null }
     ]);
-    const [deliverableType, setDeliverableType] = useState<'file' | 'redirect'>('redirect');
-    const [deliverableFile, setDeliverableFile] = useState<File | null>(null);
-    const [redirectUrl, setRedirectUrl] = useState('');
+    const [deliverables, setDeliverables] = useState<{
+        id?: string;
+        type: 'file' | 'redirect';
+        file?: File;
+        file_url?: string;
+        redirect_url?: string;
+    }[]>([]);
 
     // Order bumps
     const [allOrderBumps, setAllOrderBumps] = useState<{ id: string; name: string }[]>([]);
@@ -75,9 +79,12 @@ export function ProdutoForm() {
                     }
 
                     if (product.product_deliverables?.length) {
-                        const deliv = product.product_deliverables[0];
-                        setDeliverableType(deliv.type);
-                        if (deliv.redirect_url) setRedirectUrl(deliv.redirect_url);
+                        setDeliverables(product.product_deliverables.map(d => ({
+                            id: d.id,
+                            type: d.type,
+                            file_url: d.file_url || undefined,
+                            redirect_url: d.redirect_url || undefined
+                        })));
                     }
 
                     if (product.order_bump_ids) {
@@ -108,11 +115,19 @@ export function ProdutoForm() {
         }
     }
 
-    function handleDeliverableChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (file) {
-            setDeliverableFile(file);
-        }
+    function addDeliverable(type: 'file' | 'redirect') {
+        if (deliverables.length >= 10) return alert('Máximo de 10 entregáveis atingido');
+        setDeliverables([...deliverables, { type, redirect_url: type === 'redirect' ? '' : undefined }]);
+    }
+
+    function removeDeliverable(index: number) {
+        setDeliverables(deliverables.filter((_, i) => i !== index));
+    }
+
+    function updateDeliverable(index: number, updates: any) {
+        const newDeliverables = [...deliverables];
+        newDeliverables[index] = { ...newDeliverables[index], ...updates };
+        setDeliverables(newDeliverables);
     }
 
     function addPlan() {
@@ -144,7 +159,6 @@ export function ProdutoForm() {
 
         setIsSaving(true);
         try {
-            let productId = id;
             let imageUrl = imagePreview;
             let coverUrl = coverPreview;
 
@@ -155,6 +169,20 @@ export function ProdutoForm() {
             if (coverFile) {
                 coverUrl = await uploadFile('covers', `cover_${Date.now()}_${coverFile.name}`, coverFile);
             }
+
+            // 4. Handle Deliverables
+            const processedDeliverables = await Promise.all(deliverables.map(async (d) => {
+                let fileUrl = d.file_url;
+                if (d.type === 'file' && d.file) {
+                    fileUrl = await uploadFile('deliverables', `${Date.now()}_${d.file.name}`, d.file);
+                }
+
+                return {
+                    type: d.type,
+                    file_url: fileUrl || null,
+                    redirect_url: d.redirect_url || null
+                };
+            }));
 
             if (isEditing && id) {
                 await updateProduct(id, {
@@ -172,10 +200,8 @@ export function ProdutoForm() {
                         recurring_interval: p.recurringInterval,
                         is_active: true
                     })),
-                    // For editing, we still handle deliverables separately for now, 
-                    // but we could also consolidate if needed.
                 });
-                productId = id;
+                await syncDeliverables(id, processedDeliverables);
             } else {
                 const productPlans = plans.map(p => ({
                     name: p.name,
@@ -184,22 +210,6 @@ export function ProdutoForm() {
                     recurring_interval: p.recurringInterval,
                 }));
 
-                const productDeliverables = [];
-                if (deliverableType === 'redirect' && redirectUrl) {
-                    productDeliverables.push({
-                        type: 'redirect' as const,
-                        redirect_url: redirectUrl,
-                        file_url: null
-                    });
-                } else if (deliverableType === 'file' && deliverableFile) {
-                    const fileUrl = await uploadFile('deliverables', `${Date.now()}_${deliverableFile.name}`, deliverableFile);
-                    productDeliverables.push({
-                        type: 'file' as const,
-                        file_url: fileUrl,
-                        redirect_url: null
-                    });
-                }
-
                 const product = await createProduct({
                     name,
                     description,
@@ -207,29 +217,10 @@ export function ProdutoForm() {
                     cover_image_url: coverUrl || undefined,
                     order_bump_ids: selectedBumpIds,
                     product_plans: productPlans,
-                    product_deliverables: productDeliverables
+                    product_deliverables: processedDeliverables
                 });
                 if (!product) {
                     throw new Error('Falha ao criar produto');
-                }
-                productId = product.id;
-            }
-
-            // Sync deliverables only if editing (since creation is now atomic)
-            if (isEditing && productId) {
-                if (deliverableType === 'redirect' && redirectUrl) {
-                    await upsertDeliverable({
-                        product_id: productId,
-                        type: 'redirect',
-                        redirect_url: redirectUrl,
-                    });
-                } else if (deliverableType === 'file' && deliverableFile) {
-                    const fileUrl = await uploadFile('deliverables', `${Date.now()}_${deliverableFile.name}`, deliverableFile);
-                    await upsertDeliverable({
-                        product_id: productId,
-                        type: 'file',
-                        file_url: fileUrl,
-                    });
                 }
             }
 
@@ -486,42 +477,100 @@ export function ProdutoForm() {
 
                     {/* Delivery */}
                     <Card>
-                        <h2 className="text-sm font-black text-[var(--text-primary)] italic uppercase tracking-widest mb-6 pb-4 border-b border-[var(--border-color)]">ENTREGA PÓS-PAGO</h2>
-
-                        <div className="flex gap-2 p-1 bg-[var(--bg-tertiary)] rounded-2xl mb-6">
-                            <button
-                                type="button"
-                                onClick={() => setDeliverableType('redirect')}
-                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all ${deliverableType === 'redirect' ? 'bg-[var(--accent-primary)] text-white shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                            >
-                                URL REDIRECT
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setDeliverableType('file')}
-                                className={`flex-1 py-3 px-4 rounded-xl text-xs font-black transition-all ${deliverableType === 'file' ? 'bg-[var(--accent-primary)] text-white shadow-lg' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
-                            >
-                                ARQUIVO PDF
-                            </button>
+                        <div className="flex items-center justify-between mb-6 pb-4 border-b border-[var(--border-color)]">
+                            <h2 className="text-sm font-black text-[var(--text-primary)] italic uppercase tracking-widest">ENTREGA (MÚLTIPLOS PDF/LINKS)</h2>
+                            <span className="text-[10px] font-black px-2 py-1 bg-[var(--bg-tertiary)] rounded-full text-[var(--text-muted)]">
+                                {deliverables.length}/10
+                            </span>
                         </div>
 
-                        {deliverableType === 'redirect' ? (
-                            <Input
-                                label="PÁGINA DE OBRIGADO"
-                                value={redirectUrl}
-                                onChange={(e) => setRedirectUrl(e.target.value)}
-                                placeholder="https://..."
-                                icon={<LinkIcon size={18} />}
-                            />
-                        ) : (
-                            <label className="block border-2 border-dashed border-[var(--border-color)] rounded-2xl p-6 text-center cursor-pointer hover:border-[var(--accent-primary)] transition-all bg-[var(--bg-tertiary)]/30 group">
-                                <Upload size={24} className="mx-auto text-[var(--text-muted)] mb-3 group-hover:text-[var(--accent-primary)] transition-colors" />
-                                <p className="text-xs font-black text-[var(--text-secondary)] uppercase truncate">
-                                    {deliverableFile ? deliverableFile.name : 'SELECIONAR ARQUIVO'}
-                                </p>
-                                <input type="file" onChange={handleDeliverableChange} className="hidden" />
-                            </label>
-                        )}
+                        <div className="space-y-4 mb-6">
+                            {deliverables.map((d, index) => (
+                                <div key={index} className="p-4 bg-[var(--bg-tertiary)]/50 border border-[var(--border-subtle)] rounded-2xl group animate-slide-in">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-5 h-5 flex items-center justify-center bg-[var(--accent-primary)] text-white text-[10px] font-black rounded-lg">
+                                                {index + 1}
+                                            </span>
+                                            <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                                                {d.type === 'file' ? 'Arquivo PDF' : 'Link Redirect'}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => removeDeliverable(index)}
+                                            className="p-1.5 hover:bg-red-500/10 hover:text-red-500 text-[var(--text-muted)] rounded-lg transition-all"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+
+                                    {d.type === 'redirect' ? (
+                                        <Input
+                                            value={d.redirect_url || ''}
+                                            onChange={(e) => updateDeliverable(index, { redirect_url: e.target.value })}
+                                            placeholder="https://..."
+                                            className="bg-[var(--bg-card)]"
+                                            icon={<LinkIcon size={16} />}
+                                        />
+                                    ) : (
+                                        <div className="flex items-center gap-3">
+                                            <label className="flex-1 border-2 border-dashed border-[var(--border-color)] rounded-xl p-3 text-center cursor-pointer hover:border-[var(--accent-primary)] transition-all bg-[var(--bg-card)] group/file">
+                                                <div className="flex items-center justify-center gap-2">
+                                                    <Upload size={16} className="text-[var(--text-muted)] group-hover/file:text-[var(--accent-primary)]" />
+                                                    <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase truncate max-w-[200px]">
+                                                        {d.file ? d.file.name : d.file_url ? 'Arquivo já enviado' : 'Selecionar PDF'}
+                                                    </p>
+                                                </div>
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) updateDeliverable(index, { file });
+                                                    }}
+                                                    className="hidden"
+                                                />
+                                            </label>
+                                            {d.file_url && (
+                                                <a href={d.file_url} target="_blank" rel="noreferrer" className="p-3 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-white transition-all">
+                                                    <LinkIcon size={16} />
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {deliverables.length === 0 && (
+                                <div className="text-center py-8 border-2 border-dashed border-[var(--border-color)] rounded-2xl bg-[var(--bg-tertiary)]/10">
+                                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Nenhum entregável adicionado</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => addDeliverable('file')}
+                                className="text-[10px]"
+                                icon={<Plus size={14} />}
+                                disabled={deliverables.length >= 10}
+                            >
+                                ADD ARQUIVO
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => addDeliverable('redirect')}
+                                className="text-[10px]"
+                                icon={<Plus size={14} />}
+                                disabled={deliverables.length >= 10}
+                            >
+                                ADD LINK
+                            </Button>
+                        </div>
                     </Card>
                 </div>
             </div>

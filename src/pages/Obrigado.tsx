@@ -4,7 +4,7 @@ import { Check, Download, ExternalLink, Facebook as FbIcon, PlaySquare } from 'l
 import { Button } from '../components/ui';
 import { getOrderByCorrelationId, getPixels, getGooglePixels } from '../lib/supabase';
 import { formatPrice } from '../lib/openpix';
-import type { Order } from '../types';
+import type { Order, GooglePixel } from '../types';
 
 import { getTrackingParameters, sendToUtmify, getUserIP, formatToUtmifyDate, getCurrentDateTime } from '../lib/utmify';
 
@@ -21,7 +21,7 @@ export function Obrigado() {
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [pixels, setPixels] = useState<string[]>([]);
-    const [googlePixels, setGooglePixels] = useState<string[]>([]);
+    const [googlePixels, setGooglePixels] = useState<GooglePixel[]>([]);
     const [resent, setResent] = useState(false);
 
     useEffect(() => {
@@ -37,7 +37,7 @@ export function Obrigado() {
             const activePixels = pixelsData?.filter((p: any) => p.is_active).map((p: any) => p.pixel_id) || [];
             setPixels(activePixels);
 
-            const activeGooglePixels = googlePixelsData?.filter((p: any) => p.is_active).map((p: any) => p.pixel_id) || [];
+            const activeGooglePixels = googlePixelsData?.filter((p: GooglePixel) => p.is_active) || [];
             setGooglePixels(activeGooglePixels);
         } catch (error) {
             console.error('Error loading pixels:', error);
@@ -83,13 +83,13 @@ export function Obrigado() {
             (window as any).gtag('js', new Date());
 
             const script = document.createElement('script');
-            script.src = `https://www.googletagmanager.com/gtag/js?id=${googlePixels[0]}`;
+            script.src = `https://www.googletagmanager.com/gtag/js?id=${googlePixels[0].pixel_id}`;
             script.async = true;
             document.head.appendChild(script);
         }
 
-        googlePixels.forEach(id => {
-            (window as any).gtag('config', id);
+        googlePixels.forEach(pixel => {
+            (window as any).gtag('config', pixel.pixel_id);
         });
 
         // Fire page_view
@@ -116,9 +116,10 @@ export function Obrigado() {
         });
 
         if (googlePixels.length > 0 && (window as any).gtag) {
-            googlePixels.forEach(id => {
+            googlePixels.forEach(pixel => {
+                const sendTo = pixel.conversion_label ? `${pixel.pixel_id}/${pixel.conversion_label}` : pixel.pixel_id;
                 (window as any).gtag('event', 'conversion', {
-                    send_to: id,
+                    send_to: sendTo,
                     value: order.amount / 100,
                     currency: 'BRL',
                     transaction_id: order.correlation_id
@@ -177,9 +178,10 @@ export function Obrigado() {
             const googleStorageKey = `tracked_google_purchase_${correlationId}`;
 
             if (!localStorage.getItem(googleStorageKey)) {
-                googlePixels.forEach(id => {
+                googlePixels.forEach(pixel => {
+                    const sendTo = pixel.conversion_label ? `${pixel.pixel_id}/${pixel.conversion_label}` : pixel.pixel_id;
                     (window as any).gtag('event', 'conversion', {
-                        send_to: id,
+                        send_to: sendTo,
                         value: order.amount / 100,
                         currency: 'BRL',
                         transaction_id: correlationId
@@ -226,7 +228,7 @@ export function Obrigado() {
                         name: orderData.customer_name,
                         email: orderData.customer_email,
                         phone: orderData.customer_phone.replace(/\D/g, ''),
-                        document: null, // We don't store CPF in DB for privacy/simplicity usually, or it wasn't in schema
+                        document: null,
                         ip: ip
                     },
                     products: [
@@ -234,7 +236,7 @@ export function Obrigado() {
                             id: orderData.product?.id || '',
                             name: orderData.product?.name || '',
                             planId: orderData.plan_id || null,
-                            planName: null, // Plan name not directly in order join but okay
+                            planName: null,
                             quantity: 1,
                             priceInCents: orderData.amount
                         }
@@ -249,19 +251,24 @@ export function Obrigado() {
                 localStorage.setItem(utmifyStorageKey, 'true');
             }
 
-            // Handle redirect
-            const deliverable = orderData.product?.product_deliverables?.[0];
-            if (deliverable?.type === 'redirect' && deliverable.redirect_url) {
+            // Handle redirect - find the FIRST redirect deliverable
+            const allDeliverables = orderData.product?.product_deliverables || [];
+            const redirectDeliverable = allDeliverables.find(
+                (d: any) => d.type === 'redirect' && d.redirect_url
+            );
+            if (redirectDeliverable?.redirect_url) {
                 setTimeout(() => {
-                    // Append UTMs to redirect URL
-                    const tracking = getTrackingParameters();
-                    const url = new URL(deliverable.redirect_url!);
-                    Object.entries(tracking).forEach(([key, value]) => {
-                        if (value) url.searchParams.set(key, value);
-                    });
-
-                    window.location.href = url.toString();
-                }, 4000); // 4s delay to allow pixel to fire
+                    try {
+                        const tracking = getTrackingParameters();
+                        const url = new URL(redirectDeliverable.redirect_url!);
+                        Object.entries(tracking).forEach(([key, value]) => {
+                            if (value) url.searchParams.set(key, value);
+                        });
+                        window.location.href = url.toString();
+                    } catch (e) {
+                        window.location.href = redirectDeliverable.redirect_url!;
+                    }
+                }, 5000); // 5s delay to allow pixels to fire
             }
         } catch (error) {
             console.error('Error loading order:', error);
@@ -283,7 +290,8 @@ export function Obrigado() {
         return null;
     }
 
-    const deliverable = order.product?.product_deliverables?.[0];
+    const allDeliverables = order.product?.product_deliverables || [];
+    const redirectDeliverable = allDeliverables.find(d => d.type === 'redirect' && d.redirect_url);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center p-4">
@@ -341,25 +349,33 @@ export function Obrigado() {
                     </div>
                 </div>
 
-                {/* Deliverable Action */}
-                {deliverable && (
-                    <div className="mb-8">
-                        {deliverable.type === 'file' && deliverable.file_url ? (
-                            <a href={deliverable.file_url} download className="block">
-                                <Button className="w-full" size="lg" icon={<Download size={20} />}>
-                                    Baixar Produto
-                                </Button>
-                            </a>
-                        ) : deliverable.type === 'redirect' && deliverable.redirect_url ? (
-                            <div>
-                                <p className="text-sm text-gray-400 mb-4">Redirecionando em instantes...</p>
-                                <a href={deliverable.redirect_url} className="block">
-                                    <Button className="w-full" size="lg" icon={<ExternalLink size={20} />}>
-                                        Acessar Conteúdo
-                                    </Button>
-                                </a>
-                            </div>
-                        ) : null}
+                {/* Deliverable Actions - show ALL */}
+                {allDeliverables.length > 0 && (
+                    <div className="mb-8 space-y-3">
+                        <h3 className="text-sm font-bold text-gray-700 mb-3">Seu Acesso:</h3>
+                        {allDeliverables.map((d, index) => {
+                            if (d.type === 'file' && d.file_url) {
+                                return (
+                                    <a key={index} href={d.file_url} download className="block">
+                                        <Button className="w-full" size="lg" icon={<Download size={20} />}>
+                                            Baixar Arquivo {allDeliverables.length > 1 ? (index + 1) : ''}
+                                        </Button>
+                                    </a>
+                                );
+                            } else if (d.type === 'redirect' && d.redirect_url) {
+                                return (
+                                    <a key={index} href={d.redirect_url} className="block">
+                                        <Button className="w-full" size="lg" icon={<ExternalLink size={20} />}>
+                                            Acessar Conteúdo {allDeliverables.length > 1 ? (index + 1) : ''}
+                                        </Button>
+                                    </a>
+                                );
+                            }
+                            return null;
+                        })}
+                        {redirectDeliverable && (
+                            <p className="text-sm text-gray-400 mt-2">Redirecionando automaticamente em instantes...</p>
+                        )}
                     </div>
                 )}
 
